@@ -49,7 +49,6 @@ const ARCH: "arm64" | "x64" = getArch();
 const isWindows = platform() === "win32";
 const binExt = OS === "win" ? ".exe" : "";
 const bunBin = isWindows ? "bun.exe" : "bun";
-const zigBinary = OS === "win" ? "zig.exe" : "zig";
 
 // Note: We want all binaries in /dist to be extensionless to simplify our cross platform code
 // (no .exe on windows)
@@ -59,9 +58,6 @@ const PATH = {
 	bun: {
 		RUNTIME: join(process.cwd(), "vendors", "bun", bunBin),
 		DIST: join(process.cwd(), "dist", bunBin),
-	},
-	zig: {
-		BIN: join(process.cwd(), "vendors", "zig", zigBinary),
 	},
 };
 

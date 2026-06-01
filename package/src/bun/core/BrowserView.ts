@@ -198,7 +198,7 @@ export class BrowserView<T extends RPCWithTransport = RPCWithTransport> {
 	}
 
 	// Note: the OS has a buffer limit on named pipes. If we overflow it
-	// it won't trigger the kevent for zig to read the pipe and we'll be stuck.
+	// the pipe reader won't be triggered and we'll be stuck.
 	// so we have to chunk it
 	// TODO: is this still needed after switching from named pipes
 	executeJavascript(js: string) {

@@ -1610,9 +1610,6 @@ const defaultConfig = {
 		bun: {
 			entrypoint: "src/bun/index.ts",
 		},
-		zig: {
-			entrypoint: "src/zig/main.zig",
-		},
 		views: undefined as
 			| Record<string, { entrypoint: string;[key: string]: unknown }>
 			| undefined,
@@ -2508,21 +2505,13 @@ Categories=Utility;Application;
 		const mainProcess = "bun" as const;
 		const bunConfig = config.build.bun;
 		const bunSource = join(projectRoot, bunConfig.entrypoint);
-		const zigConfig = config.build.zig;
-		const zigSource = join(projectRoot, zigConfig.entrypoint);
-
 		if (mainProcess === "bun") {
 			if (!existsSync(bunSource)) {
 				throw new Error(
 					`failed to bundle ${bunSource} because it doesn't exist.\n You need a config.build.bun.entrypoint source file to build.`,
 				);
 			}
-		} else if (!existsSync(zigSource)) {
-			throw new Error(
-				`failed to compile ${zigSource} because it doesn't exist.\n You need a config.build.zig.entrypoint source file to build.`,
-			);
-		}
-
+		} 
 		const isCarrotOnly = config.build.carrot?.carrotOnly === true;
 
 		// build macos bundle
@@ -2638,17 +2627,7 @@ Categories=Utility;Application;
 			// `;
 
 			//     // Launcher binary
-			//     // todo (yoav): This will likely be a zig compiled binary in the future
-			//     Bun.write(join(appBundleMacOSPath, 'MyApp'), LauncherContents);
-			//     chmodSync(join(appBundleMacOSPath, 'MyApp'), '755');
-			// const zigLauncherDestination = join(appBundleMacOSPath, 'MyApp');
-			// const destLauncherFolder = dirname(zigLauncherDestination);
-			// if (!existsSync(destLauncherFolder)) {
-			//     // console.info('creating folder: ', destFolder);
-			//     mkdirSync(destLauncherFolder, {recursive: true});
-			// }
-			// cpSync(zigLauncherBinarySource, zigLauncherDestination, {recursive: true, dereference: true});
-			// Copy zig launcher for all platforms
+			// Copy launcher for all platforms
 			const bunCliLauncherBinarySource = targetPaths.LAUNCHER_RELEASE;
 			const bunCliLauncherDestination =
 				join(appBundleMacOSPath, "launcher") + targetBinExt;
@@ -4987,10 +4966,7 @@ Categories=Utility;Application;
 					...defaultConfig.build.bun,
 					...(loadedConfig?.build?.bun || {}),
 				},
-				zig: {
-					...defaultConfig.build.zig,
-					...(loadedConfig?.build?.zig || {}),
-				},
+
 			},
 			runtime: {
 				...defaultConfig.runtime,

@@ -1,13 +1,12 @@
-//! Window management module - winit EventLoop 架构
+//! Window management module — winit EventLoop architecture
 //!
-//! 架构说明：
-//! - Zig 模式：FFI → 同步调用 native_wrapper → 直接返回
-//! - winit 模式：FFI → 异步发消息 → 后台事件循环 → 回调返回
+//! All window/WebView objects live on the event loop thread.
+//! Operations are sent via Command channel to that thread.
 //!
-//! 关键差异：
-//! - EventLoop::run_app() 是无限阻塞的，后台线程一旦启动就不会退出
-//! - 窗口/WebView 对象只能存在于事件循环线程上
-//! - 所有窗口操作通过 Command channel 发送到事件循环线程
+//! Key constraints:
+//! - EventLoop::run_app() blocks indefinitely; the background thread runs until exit
+//! - Window/WebView objects can only exist on the event loop thread
+//! - All window operations are dispatched through the Command channel
 //! - 使用 oneshot channel 等待操作结果（模拟同步 FFI 调用）
 
 use crate::error::ElectrobunError;

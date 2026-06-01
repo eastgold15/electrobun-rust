@@ -1080,8 +1080,8 @@ function createFfiRequestProxy(ffiRequest: Record<string, Function>): Record<str
 // const _callbacks: unknown[] = [];
 
 // NOTE: Bun seems to hit limits on args or arg types. eg: trying to send 12 bools results
-// in only about 8 going through then params after that. I think it may be similar to
-// a zig bug I ran into last year. So check number of args in a signature when alignment issues occur.
+// in only about 8 going through then params after that.
+// So check number of args in a signature when alignment issues occur.
 
 // Non-null accessor for use inside _ffiImpl — these methods are only called when hasFFI is true.
 const core_ = core!;

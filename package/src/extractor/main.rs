@@ -1,5 +1,4 @@
-//! Electrobun Self-Extractor - Rust Port
-//! Converts from Zig to Rust following the cross-reference table
+//! Electrobun Self-Extractor — extracts and runs the bundled app from an archive
 
 use std::env;
 use std::fs::{self, File};
@@ -7,7 +6,6 @@ use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-// Zig: const ARCHIVE_MARKER = "ELECTROBUN_ARCHIVE_V1"
 const ARCHIVE_MARKER: &[u8] = b"ELECTROBUN_ARCHIVE_V1";
 const METADATA_MARKER: &[u8] = b"ELECTROBUN_METADATA_V1";
 

@@ -18,38 +18,25 @@ const SIGHUP: i32 = 1;
 #[cfg(unix)]
 const SIGKILL: i32 = 9;
 
-// ④ Zig: var child_pid = undefined
-//    Rust 不允许未初始化，用 Mutex 包裹以便在信号处理函数中修改
-//    （Rust 的信号处理函数限制很多，所以用 Mutex + static）
+// Global state for signal handling and child process management
+// Rust doesn't allow uninitialized globals, so Mutex wraps each value
 static CHILD_PID: std::sync::Mutex<u32> = std::sync::Mutex::new(0);
 
-// ⑤ Zig: var should_exit = false
-//    同理用 Mutex
 #[allow(dead_code)]
 static SHOULD_EXIT: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
 
-// ⑥ Zig: var sigint_count = 0
-//    同理用 Mutex
 #[allow(dead_code)]
 static SIGINT_COUNT: std::sync::Mutex<u32> = std::sync::Mutex::new(0);
-
-
-// Zig 用 if (builtin.os.tag == .windows) struct { ... } else struct {}
-// Rust 用 #[cfg(target_os = "windows")] 属性
 
 #[cfg(target_os = "windows")]
 #[allow(dead_code, non_snake_case)]
 mod windows_imports {
     use std::os::windows::raw::HANDLE;
 
-    // Zig: const BOOL = win.BOOL → Rust 直接用 i32
     pub type BOOL = i32;
-    // Zig: const DWORD = win.DWORD → Rust 直接用 u32
     pub type DWORD = u32;
-    // Zig: const LPWSTR = win.LPWSTR → Rust 用 *mut u16（UTF-16 字符串指针）
     pub type LPWSTR = *mut u16;
 
-    // Zig: extern struct → Rust 用 #[repr(C)] 确保内存布局和 C 一致
     #[repr(C)]
     pub struct PROCESS_INFORMATION {
         pub hProcess: HANDLE,
@@ -62,7 +49,7 @@ mod windows_imports {
     #[repr(C)]
     pub struct STARTUPINFOW {
         pub cb: DWORD,
-        pub lpReserved: LPWSTR,       // Zig: ?LPWSTR → Rust: LPWSTR（null 表示无）
+        pub lpReserved: LPWSTR,
         pub lpDesktop: LPWSTR,
         pub lpTitle: LPWSTR,
         pub dwX: DWORD,
@@ -73,17 +60,15 @@ mod windows_imports {
         pub dwYCountChars: DWORD,
         pub dwFillAttribute: DWORD,
         pub dwFlags: DWORD,
-        pub wShowWindow: u16,         // Zig: win.WORD → Rust: u16
+        pub wShowWindow: u16,
         pub cbReserved2: u16,
-        pub lpReserved2: *mut u8,     // Zig: ?*u8 → Rust: *mut u8
+        pub lpReserved2: *mut u8,
         pub hStdInput: HANDLE,
         pub hStdOutput: HANDLE,
         pub hStdError: HANDLE,
     }
 
     // 声明 Windows API 函数
-    // Zig: extern "kernel32" fn ... callconv(win.WINAPI)
-    // Rust: extern "system" fn ...（"system" = Windows 上的 WINAPI 调用约定）
     #[link(name = "kernel32")]
     extern "system" {
         pub fn CreateProcessW(
@@ -115,44 +100,29 @@ mod windows_imports {
     pub const INFINITE: DWORD = 0xFFFFFFFF;
 }
 
-
-
-
-
 use std::collections::HashMap;
 
-/// 判断是否是开发版本
-/// Zig: fn isDevBuild(allocator, exe_dir) bool
-/// Rust: fn is_dev_build(exe_dir: &str) -> bool
-///
-/// 区别：Zig 需要传入 allocator 来分配内存，Rust 的 String/PathBuf 自动管理
+/// Check if the build is a development version
 fn is_dev_build(exe_dir: &str) -> bool {
-    // Zig: std.fs.path.join(allocator, &.{...}) catch return false
-    // Rust: PathBuf::new().push(...)  自动分配，不需要 allocator
+    // PathBuf handles memory allocation automatically
     let version_path = PathBuf::from(exe_dir).join("..").join("Resources").join("version.json");
-
-    // Zig: std.fs.openFileAbsolute(path, .{}) catch return false
-    // Rust: fs::read_to_string() 一步完成：打开文件 + 读取内容 + 关闭文件
+    // fs::read_to_string opens, reads, and closes in one call
     //      如果失败返回 Err，用 .ok()? 转为 None
     let content = match fs::read_to_string(&version_path) {
         Ok(c) => c,
-        Err(_) => return false,  // Zig: catch return false
+        Err(_) => return false,
     };
-
-    // Zig: std.json.parseFromSlice(std.json.Value, ...)
-    // Rust: 用 serde_json 解析为 HashMap<String, serde_json::Value>
+    // Parsing with serde_json
     let parsed: HashMap<String, serde_json::Value> = match serde_json::from_str(&content) {
         Ok(p) => p,
         Err(_) => return false,
     };
 
-    // Zig: parsed.value.object.get("channel") |channel_value|
     //      if (channel_value == .string) { ... channel_value.string ... }
-    // Rust: parsed.get("channel")  返回 Option<&Value>
+    // parsed.get("channel") returns Option<&Value>
     if let Some(channel_value) = parsed.get("channel") {
         if let Some(channel_str) = channel_value.as_str() {
-            // Zig: std.mem.eql(u8, channel_value.string, "dev")
-            // Rust: channel_str == "dev"
+            // channel_str == "dev"
             return channel_str == "dev";
         }
     }
@@ -160,22 +130,14 @@ fn is_dev_build(exe_dir: &str) -> bool {
     false
 }
 
-/// 检测主进程类型 — 总是 Bun
 fn detect_main_process() -> &'static str {
     "bun"
 }
-
-
-
-
-// Zig: fn alarmHandler(_: c_int) callconv(.C) void
-// Rust: extern "C" fn alarm_handler(_: i32)
 // 注意：Rust 的信号处理函数必须是 extern "C" 的，且只能调用 async-signal-safe 函数
 #[cfg(unix)]
 extern "C" fn alarm_handler(_: i32) {
     unsafe {
-        // Zig: _ = c.kill(0, c.SIGKILL)
-        // Rust: kill(0, SIGKILL)  — 0 表示整个进程组
+        // kill(0, SIGKILL) sends to entire process group
         kill(0, SIGKILL);
     }
 }
@@ -183,37 +145,31 @@ extern "C" fn alarm_handler(_: i32) {
 #[cfg(unix)]
 extern "C" fn signal_handler(sig: i32) {
     if sig == SIGINT {
-        // Zig: sigint_count += 1（直接修改全局变量）
-        // Rust: 必须通过 Mutex 修改
+        // Must use Mutex to modify shared state
         let mut count = SIGINT_COUNT.lock().unwrap();
         *count += 1;
 
         if *count == 1 {
             // 第一次 Ctrl+C
-            unsafe { alarm(10); }  // Zig: _ = c.alarm(10)
+            unsafe { alarm(10); }
             return;
         } else {
             // 第二次 Ctrl+C
-            unsafe { alarm(0); }   // Zig: _ = c.alarm(0)
-            unsafe { kill(0, SIGKILL); }  // Zig: _ = c.kill(0, c.SIGKILL)
+            unsafe { alarm(0); }
+            unsafe { kill(0, SIGKILL); }
             return;
         }
     }
-
-    // Zig: _ = c.kill(@intCast(child_pid), sig)
-    // Rust: 转发给子进程
+    // Forward signal to child process
     let pid = *CHILD_PID.lock().unwrap();
     unsafe { kill(pid, sig); }
 
     if sig == SIGTERM {
-        // Zig: should_exit = true
         *SHOULD_EXIT.lock().unwrap() = true;
     }
 }
 
-
-
-// 第 5 部分：主函数（核心逻辑）
+// Main entry point
 fn main() {
     // ═══════════════════════════════════════════════════════
     // 获取可执行文件所在目录
@@ -227,13 +183,13 @@ fn main() {
     // ═══════════════════════════════════════════════════════
     // 设置信号处理器（仅非 Windows）
     // ═══════════════════════════════════════════════════════
-  
+
     #[cfg(unix)]
     unsafe {
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
         signal(SIGHUP, signal_handler);
-        signal(SIGKILL, alarm_handler);  // Zig 用 SIGALRM，这里简化
+        signal(SIGKILL, alarm_handler);  // SIGKILL as simplified SIGALRM
     }
 
     // ═══════════════════════════════════════════════════════
@@ -245,22 +201,17 @@ fn main() {
     // 根据平台和主进程类型，确定启动命令
     // ═══════════════════════════════════════════════════════
     let (program, args): (String, Vec<String>) = match main_process {
-      MainProcess::Bun => {
+      "bun" => {
         let bun_name = format!("bun{}", std::env::consts::EXE_SUFFIX);
         let bun_path = PathBuf::from(exe_dir).join(&bun_name);
         let resources_path = PathBuf::from(exe_dir)
             .join("..").join("Resources").join("main.js");
         (bun_path.to_str().unwrap().to_string(), vec![resources_path.to_str().unwrap().to_string()])
     }
-      MainProcess::Zig => {
-        let main_name = format!("main{}", std::env::consts::EXE_SUFFIX);
-        let main_path = PathBuf::from(exe_dir).join(main_name);
-        (main_path.to_str().unwrap().to_string(), vec![])
-    }
+
 };
 
     // ═══════════════════════════════════════════════════════
-    // Zig 原文第 212-269 行：创建子进程 + 平台环境设置
     // ═══════════════════════════════════════════════════════
 
     let mut cmd = process::Command::new(&program);
@@ -296,15 +247,8 @@ fn main() {
     println!("Spawning: {} {}", program, args.first().map(|s| s.as_str()).unwrap_or(""));
 
     // ═══════════════════════════════════════════════════════
-    // Zig 原文第 274-289 行：判断是否为开发版本
     // ═══════════════════════════════════════════════════════
     //
-    // Zig:
-    //   const force_console = if (std.process.getEnvVarOwned(...)) |val| blk: {
-    //       defer arena_alloc.free(val);
-    //       break :blk std.mem.eql(u8, val, "1");
-    //   } else |_| false;
-    //   const is_dev_build = force_console or isDevBuild(arena_alloc, exe_dir);
 
     let force_console = env::var("ELECTROBUN_CONSOLE")
         .map(|v| v == "1")
@@ -319,32 +263,24 @@ fn main() {
     }
 
     // ═══════════════════════════════════════════════════════
-    // Zig 原文第 289-384 行：启动子进程，分两条路径
     // ═══════════════════════════════════════════════════════
-
 
     #[cfg(target_os = "windows")]
     if !is_dev_build {
         // ──── Windows 正式版：CreateProcessW，隐藏控制台 ────
         use windows_imports::*;
 
-        // Zig: 把命令行拼成 "program" "arg" 格式（CreateProcessW 要求）
         let cmd_line = format!("\"{}\" \"{}\"", program, args[0]);
-
-        // Zig: std.unicode.utf8ToUtf16LeWithNull → 转 UTF-16
-        // Rust: 用 widestring crate 或手动转换
+        // UTF-16 conversion
         let mut cmd_line_w: Vec<u16> = cmd_line.encode_utf16().chain(std::iter::once(0)).collect();
         let mut cwd_w: Vec<u16> = exe_dir_str.encode_utf16().chain(std::iter::once(0)).collect();
 
-        // Zig: var si: win.STARTUPINFOW = std.mem.zeroes(win.STARTUPINFOW);
-        //       si.cb = @sizeOf(win.STARTUPINFOW);
-        // Rust: 零初始化结构体
+        // zero-initialized struct
         let mut si: STARTUPINFOW = unsafe { std::mem::zeroed() };
         si.cb = std::mem::size_of::<STARTUPINFOW>() as DWORD;
 
         let mut pi: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
 
-        // Zig: win.CreateProcessW(null, @constCast(cmd_line_w.ptr), ...)
         let success = unsafe {
             CreateProcessW(
                 std::ptr::null_mut(),       // lpApplicationName
@@ -367,7 +303,6 @@ fn main() {
 
         println!("Child process spawned with PID {}", pi.dwProcessId);
 
-        // Zig: _ = win.WaitForSingleObject(pi.hProcess, win.INFINITE);
         unsafe { WaitForSingleObject(pi.hProcess, INFINITE); }
 
         let mut exit_code: DWORD = 0;
@@ -396,8 +331,7 @@ fn main() {
             return;
         }
     };
-
-    // Rust: 保存 PID 到全局 Mutex
+    // Save PID to global Mutex
     *CHILD_PID.lock().unwrap() = child.id();
     println!("Child process spawned with PID {}", child.id());
 
