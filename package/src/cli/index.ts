@@ -202,6 +202,11 @@ const _PATHS = getPlatformPaths(OS, ARCH);
 
 
 
+
+	/** 获取 CEF Helper 进程的基础名称 */
+	function getCEFHelperBaseName(): string {
+		return "launcher";
+	}
 function getCEFHelperNames(): string[] {
 	const baseName = getCEFHelperBaseName();
 	return [
@@ -3589,7 +3594,7 @@ Categories=Utility;Application;
 		}
 
 		// Run postBuild script — with carrot dir available if configured
-		runHook("postBuild", carrotBuildDir ? { ELECTROBUN_CARROT_DIR: carrotBuildDir };
+		runHook("postBuild", carrotBuildDir ? { ELECTROBUN_CARROT_DIR: carrotBuildDir } : {});
 
 		// Compress carrot artifact for non-dev builds
 		if (config.build.carrot && carrotBuildDir && buildEnvironment !== "dev") {
@@ -3768,7 +3773,7 @@ Categories=Utility;Application;
 			...(mainProcess === "bun"
 				? { bunVersion: config.build?.bunVersion ?? BUN_VERSION }
 				: {}),
-			...(config.build?.bunnyBun ? { bunnyBun: config.build.bunnyBun },
+			...(config.build?.bunnyBun ? { bunnyBun: config.build.bunnyBun } : {}),
 		};
 
 		// Include chromiumFlags only if the developer defined them

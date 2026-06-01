@@ -242,8 +242,11 @@ async function findMsvcTools() {
 // Helper function to run MSVC commands with environment set up
 async function runMsvcCommand(command: string) {
 	if (!VCVARSALL_PATH) {
-		// Fallback to running command directly
-		return await $`${command}`;
+		throw new Error(
+			`MSVC 编译器未找到。无法执行 MSVC 命令:\n  ${command}\n\n` +
+			`请安装 Visual Studio 2022 Build Tools 并确保勾选"使用 C++ 的桌面开发"工作负载。\n` +
+			`或手动设置环境后直接运行该命令。`,
+		);
 	}
 
 	// Create a temporary batch file to run the command with proper environment
@@ -925,8 +928,7 @@ async function vendorWGPU() {
 	const platformName = platformMap[OS];
 	const archName = ARCH;
 
-	const tarballUrl = `https://github.com/blackboardsh/electrobun-dawn/releases/download/v${WGPU_VERSION}/electro
-     bun-dawn-${platformName}-${archName}.tar.gz`;
+	const tarballUrl = `https://github.com/blackboardsh/electrobun-dawn/releases/download/v${WGPU_VERSION}/electrobun-dawn-${platformName}-${archName}.tar.gz`;
 	const tempTarball = join("vendors", `electrobun-dawn-temp.tar.gz`);
 	const tempExtractDir = join("vendors", `electrobun-dawn-extract-${Date.now()}`);
 
@@ -939,8 +941,7 @@ async function vendorWGPU() {
 			process.env["GH_TOKEN"] ??
 			process.env["GITHUB_ACCESS_TOKEN"];
 		if (githubToken) {
-			await $`curl -fL -H "Authorization: Bearer ${githubToken}" -H "Accept: application/octet-stream"
-     "${tarballUrl}" -o "${tempTarball}"`;
+			await $`curl -fL -H "Authorization: Bearer ${githubToken}" -H "Accept: application/octet-stream" "${tarballUrl}" -o "${tempTarball}"`;
 		} else {
 			await $`curl -fL -H "Accept: application/octet-stream" "${tarballUrl}" -o "${tempTarball}"`;
 		}

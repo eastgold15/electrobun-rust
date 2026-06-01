@@ -2435,10 +2435,10 @@ bool isCEFAvailable() {
 
 class StatusItemTarget {
 public:
-    EbStatusItemHandler zigHandler;
+    EbStatusItemHandler ebHandler;
     uint32_t trayId;
     
-    StatusItemTarget() : zigHandler(nullptr), trayId(0) {}
+    StatusItemTarget() : ebHandler(nullptr), trayId(0) {}
 };
 
 
@@ -4696,7 +4696,7 @@ void handleApplicationMenuSelection(UINT menuId) {
         // sprintf_s(logMsg, "Application menu action: %s", action.c_str());
         // ::log(logMsg);
         
-        if (g_appMenuTarget && g_appMenuTarget->zigHandler) {
+        if (g_appMenuTarget && g_appMenuTarget->ebHandler) {
             if (action == "__quit__") {
                 if (g_quitRequestedHandler && !g_eventLoopStopping.load()) {
                     g_quitRequestedHandler();
@@ -4807,7 +4807,7 @@ void handleApplicationMenuSelection(UINT menuId) {
                     PostMessage(activeWindow, WM_CLOSE, 0, 0);
                 }
             } else {
-                g_appMenuTarget->zigHandler(g_appMenuTarget->trayId, action.c_str());
+                g_appMenuTarget->ebHandler(g_appMenuTarget->trayId, action.c_str());
             }
         }
     }
@@ -10987,7 +10987,7 @@ ELECTROBUN_EXPORT void setApplicationMenu(const char *jsonString, EbStatusItemHa
             
             // Create target for handling menu actions
             g_appMenuTarget = std::make_unique<StatusItemTarget>();
-            g_appMenuTarget->zigHandler = ebTrayItemHandler;
+            g_appMenuTarget->ebHandler = ebTrayItemHandler;
             g_appMenuTarget->trayId = 0;
             
             // Clean up existing application menu and accelerators

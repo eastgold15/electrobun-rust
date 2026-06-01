@@ -1019,7 +1019,7 @@ static NSMutableDictionary<NSNumber *, AbstractView *> *globalAbstractViews = ni
 
 @interface StatusItemTarget : NSObject
     @property (nonatomic, assign) NSStatusItem *statusItem;
-    @property (nonatomic, assign) EbStatusItemHandler zigHandler;
+    @property (nonatomic, assign) EbStatusItemHandler ebHandler;
     @property (nonatomic, assign) uint32_t trayId;
     - (void)statusItemClicked:(id)sender;
     - (void)menuItemClicked:(id)sender;
@@ -4336,8 +4336,8 @@ extern "C" void wgpuToggleGPUTestShader(AbstractView* abstractView) {
 
 @implementation StatusItemTarget
     - (void)statusItemClicked:(id)sender {
-        if (self.zigHandler) {                    
-            self.zigHandler(self.trayId, "");                        
+        if (self.ebHandler) {                    
+            self.ebHandler(self.trayId, "");                        
         }
     }
     - (void)menuItemClicked:(id)sender {
@@ -4347,11 +4347,11 @@ extern "C" void wgpuToggleGPUTestShader(AbstractView* abstractView) {
             NSLog(@"No action found for menu item");
             return;
         }
-        if (!self.zigHandler) {
+        if (!self.ebHandler) {
             NSLog(@"No handler found for menu item");
             return;
         }
-        self.zigHandler(self.trayId, [action UTF8String]);
+        self.ebHandler(self.trayId, [action UTF8String]);
     }
 @end
 
@@ -8292,7 +8292,7 @@ extern "C" NSStatusItem* createTray(uint32_t trayId, const char *title, const ch
         if (ebTrayItemHandler) {
             StatusItemTarget *target = [[StatusItemTarget alloc] init];
             target.statusItem = statusItem;
-            target.zigHandler = ebTrayItemHandler;
+            target.ebHandler = ebTrayItemHandler;
             target.trayId = trayId;        
             objc_setAssociatedObject(statusItem.button, "statusItemTarget", target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [statusItem.button setTarget:target];
@@ -8403,7 +8403,7 @@ extern "C" void setApplicationMenu(const char *jsonString, EbStatusItemHandler e
             return;
         }
         StatusItemTarget *target = [[StatusItemTarget alloc] init];
-        target.zigHandler = ebTrayItemHandler;
+        target.ebHandler = ebTrayItemHandler;
         target.trayId = 0;
         NSMenu *menu = createMenuFromConfig(menuArray, target);
         objc_setAssociatedObject(NSApp, "AppMenuTarget", target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -8424,7 +8424,7 @@ extern "C" void showContextMenu(const char *jsonString, EbStatusItemHandler cont
             return;
         }
         StatusItemTarget *target = [[StatusItemTarget alloc] init];
-        target.zigHandler = contextMenuHandler;
+        target.ebHandler = contextMenuHandler;
         target.trayId = 0;
         NSMenu *menu = createMenuFromConfig(menuArray, target);
         objc_setAssociatedObject(menu, "ContextMenuTarget", target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
