@@ -137,8 +137,9 @@ function getPlatformPaths(
 		// These work with existing package.json and development workflow
 		MAIN_JS: join(sharedDistDir, "main.js"),
 		API_DIR: join(sharedDistDir, "api"),
-		PRELOAD_FULL_JS: join(sharedDistDir, "preload-full.js"),
-		PRELOAD_SANDBOXED_JS: join(sharedDistDir, "preload-sandboxed.js"),
+		// Preload scripts are platform-specific and stored in dist-OS-ARCH/
+		PRELOAD_FULL_JS: join(platformDistDir, "preload-full.js"),
+		PRELOAD_SANDBOXED_JS: join(platformDistDir, "preload-sandboxed.js"),
 	};
 }
 
@@ -463,17 +464,29 @@ async function ensureCoreDependencies(
 		// Note: We no longer need to remove or re-add signatures from downloaded binaries
 		// The CI-added adhoc signatures are actually required for macOS to run the binaries
 
-		// For development: if main.js doesn't exist in shared dist/, copy from platform-specific download as fallback
+		// Development fallback: copy all shared files from platform-specific download to shared dist/
 		const sharedDistPath = join(ELECTROBUN_DEP_PATH, "dist");
-		const extractedMainJs = join(platformDistPath, "main.js");
-		const sharedMainJs = join(sharedDistPath, "main.js");
+		const fallbackItems = [
+			{ name: "main.js" },
+			{ name: "preload-full.js" },
+			{ name: "preload-sandboxed.js" },
+			{ name: "api", recursive: true },
+		];
 
-		if (existsSync(extractedMainJs) && !existsSync(sharedMainJs)) {
-			console.log(
-				"Development fallback: copying main.js from platform-specific download to shared dist/",
-			);
-			mkdirSync(sharedDistPath, { recursive: true });
-			cpSync(extractedMainJs, sharedMainJs, { dereference: true });
+		for (const item of fallbackItems) {
+			const src = join(platformDistPath, item.name);
+			const dest = join(sharedDistPath, item.name);
+			if (existsSync(src) && !existsSync(dest)) {
+				console.log(
+					`Development fallback: copying ${item.name} from platform-specific download to shared dist/`,
+				);
+				mkdirSync(sharedDistPath, { recursive: true });
+				if (item.recursive) {
+					cpSync(src, dest, { dereference: true, recursive: true });
+				} else {
+					cpSync(src, dest, { dereference: true });
+				}
+			}
 		}
 
 		console.log(

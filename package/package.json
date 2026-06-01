@@ -26,6 +26,7 @@
 		"url": "git+https://github.com/blackboardsh/electrobun.git"
 	},
 	"scripts": {
+		"postinstall": "bun scripts/postinstall.ts",
 		"start": "bun src/bun/index.ts",
 		"check-zig-version": "vendors/zig/zig version",
 		"build:dev": "bun build.ts",
