@@ -41,10 +41,33 @@ wry = "0.55.1"
 # Raw window handle
 raw-window-handle = "0.6"
 
+# Clipboard
+arboard = "3.2"
+
+# Native file dialogs
+rfd = "0.17.2"
+
+# Desktop notifications
+notify-rust = "4.10"
+
+# Global shortcuts
+global-hotkey = "0.8.0"
+
+# Open file/URL in system handler
+open = "5.1"
+
+# WGPU (GPU compute/rendering)
+wgpu = "29.0.3"
+
+# WebSocket server for host transport
+websocket = "0.27"
+
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+    "Win32_System_DataExchange",
 ] }
 
 [features]

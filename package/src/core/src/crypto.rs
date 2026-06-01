@@ -11,7 +11,7 @@ use sha1::{Sha1, Digest};
 pub const AES256_KEY_LENGTH: usize = 32;
 
 /// Derive WebSocket accept key from challenge
-/// Zig: std.crypto.hash.Sha1.hash
+
 pub fn derive_websocket_accept(challenge: &str) -> String {
     let combined = format!("{}{}", challenge, super::transport::WEBSOCKET_MAGIC);
     

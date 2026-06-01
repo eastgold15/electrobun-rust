@@ -1,5 +1,3 @@
-import { join, dirname, basename } from "path";
-import * as path from "path";
 import {
 	existsSync,
 	readFileSync,
@@ -16,11 +14,50 @@ import {
 	renameSync,
 } from "fs";
 import { execSync } from "child_process";
+import { join, dirname, basename } from "path";
+import * as path from "path";
 import * as readline from "readline";
 import { OS, ARCH } from "../shared/platform";
 import { DEFAULT_CEF_VERSION_STRING } from "../shared/cef-version";
 import { BUN_VERSION } from "../shared/bun-version";
 import { ELECTROBUN_VERSION } from "../shared/electrobun-version";
+
+// ── safeCopyFile: workaround for Bun's cpSync EPERM bug on Windows ──
+// Bun's fs.cpSync sometimes throws EPERM (errno -1) on Windows for single
+// files.  Node's copyFileSync doesn't have this issue.
+function safeCopyFile(src: string, dest: string, maxRetries = 3) {
+	let lastError: Error | null = null;
+	
+	for (let attempt = 1; attempt <= maxRetries; attempt++) {
+		try {
+			copyFileSync(src, dest);
+			return; // Success
+		} catch (err: any) {
+			lastError = err;
+			
+			// Only retry on EPERM or EBUSY errors (file locked/in use)
+			if ((err.code !== 'EPERM' && err.code !== 'EBUSY') || attempt === maxRetries) {
+				throw err;
+			}
+			
+			// Delete the destination file if it exists and retry
+			if (existsSync(dest)) {
+				try {
+					unlinkSync(dest);
+				} catch (unlinkErr) {
+					// If we can't delete it, wait and retry
+				}
+			}
+			
+			// Wait before retrying (exponential backoff: 100ms, 200ms, 400ms)
+			const delay = Math.pow(2, attempt - 1) * 100;
+			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
+		}
+	}
+	
+	// Should never reach here, but just in case
+	if (lastError) throw lastError;
+}
 import {
 	getAppFileName,
 	getBundleFileName,
@@ -40,15 +77,15 @@ const _MAX_CHUNK_SIZE = 1024 * 2;
 
 // GitHub configuration
 const GITHUB_CONFIG = {
-  // Your GitHub username and repo
-  owner: process.env.ELECTROBUN_GITHUB_OWNER || 'eastgold15',
-  electrobunRepo: process.env.ELECTROBUN_GITHUB_REPO || 'electrobun-rust',
-  // Blackboardsh's Bun fork (keep this unless you have your own Bun fork)
-  bunOwner: 'blackboardsh',
-  bunRepo: 'bun',
-  // Blackboardsh's electrobun-dawn fork (keep this)
-  dawnOwner: 'blackboardsh',
-  dawnRepo: 'electrobun-dawn',
+	// Your GitHub username and repo
+	owner: process.env.ELECTROBUN_GITHUB_OWNER || 'eastgold15',
+	electrobunRepo: process.env.ELECTROBUN_GITHUB_REPO || 'electrobun-rust',
+	// Blackboardsh's Bun fork (keep this unless you have your own Bun fork)
+	bunOwner: 'blackboardsh',
+	bunRepo: 'bun',
+	// Blackboardsh's electrobun-dawn fork (keep this)
+	dawnOwner: 'blackboardsh',
+	dawnRepo: 'electrobun-dawn',
 };
 
 // const binExt = OS === 'win' ? '.exe' : '';
@@ -561,7 +598,7 @@ async function trimICUData(
 	locales: string[],
 ): Promise<void> {
 	// Copy the full .dat file first
-	cpSync(source, dest);
+	safeCopyFile(source, dest);
 
 	// Try to find icupkg in PATH or common locations
 	let icupkgPath = "icupkg";
@@ -816,7 +853,7 @@ async function downloadCustomBun(
 		if (existsSync(overrideDir)) {
 			try {
 				rmSync(overrideDir, { recursive: true, force: true });
-			} catch {}
+			} catch { }
 		}
 
 		console.error(
@@ -939,7 +976,7 @@ async function downloadBunnyBun(
 		console.log(`Bunny Bun ${releaseTag} for ${platformOS}-${platformArch} set up successfully`);
 	} catch (error: any) {
 		if (existsSync(overrideDir)) {
-			try { rmSync(overrideDir, { recursive: true, force: true }); } catch {}
+			try { rmSync(overrideDir, { recursive: true, force: true }); } catch { }
 		}
 		console.error(`Failed to set up Bunny Bun ${releaseTag} for ${platformOS}-${platformArch}:`, error.message);
 		console.error(`Verify the release tag exists at: https://github.com/${GITHUB_CONFIG.bunOwner}/${GITHUB_CONFIG.bunRepo}/releases`);
@@ -1406,7 +1443,7 @@ async function ensureWGPUDependencies(
 		if (existsSync(wgpuDir)) {
 			try {
 				rmSync(wgpuDir, { recursive: true, force: true });
-			} catch {}
+			} catch { }
 		}
 		console.error(
 			`Failed to download WGPU dependencies for ${platformOS}-${platformArch}:`,
@@ -1436,8 +1473,8 @@ async function downloadAndExtractCustomCEF(
 	if (!match) {
 		throw new Error(
 			`Invalid cefVersion format: "${cefVersion}". ` +
-				`Expected: "CEF_VERSION+chromium-CHROMIUM_VERSION" ` +
-				`(e.g. "144.0.11+ge135be2+chromium-144.0.7559.97")`,
+			`Expected: "CEF_VERSION+chromium-CHROMIUM_VERSION" ` +
+			`(e.g. "144.0.11+ge135be2+chromium-144.0.7559.97")`,
 		);
 	}
 	const cefVer = match[1]!;
@@ -1581,7 +1618,7 @@ async function downloadAndExtractCustomCEF(
 		if (existsSync(cefDir)) {
 			try {
 				rmSync(cefDir, { recursive: true, force: true });
-			} catch {}
+			} catch { }
 		}
 
 		console.error(
@@ -1593,7 +1630,7 @@ async function downloadAndExtractCustomCEF(
 		);
 		console.error(
 			`Note: CEF's C API is ABI-stable within the same major version. ` +
-				`Across major versions, breaking changes are possible.`,
+			`Across major versions, breaking changes are possible.`,
 		);
 		process.exit(1);
 	} finally {
@@ -1601,7 +1638,7 @@ async function downloadAndExtractCustomCEF(
 		if (existsSync(tempFile)) {
 			try {
 				unlinkSync(tempFile);
-			} catch {}
+			} catch { }
 		}
 	}
 }
@@ -1689,7 +1726,7 @@ const defaultConfig = {
 			entrypoint: "src/zig/main.zig",
 		},
 		views: undefined as
-			| Record<string, { entrypoint: string; [key: string]: unknown }>
+			| Record<string, { entrypoint: string;[key: string]: unknown }>
 			| undefined,
 		copy: undefined as Record<string, string> | undefined,
 		watch: undefined as string[] | undefined,
@@ -2402,7 +2439,7 @@ ${utiDecls}
 							if (actoolCheck.exitCode !== 0) {
 								throw new Error(
 									"Building .icon files requires Xcode (actool is not available from Command Line Tools alone). " +
-										"Install Xcode from the App Store, or set mac.icons to an .iconset folder instead.",
+									"Install Xcode from the App Store, or set mac.icons to an .iconset folder instead.",
 								);
 							}
 
@@ -2660,28 +2697,28 @@ Categories=Utility;Application;
 		let InfoPlistContents = "";
 
 		if (!isCarrotOnly) {
-		// Generate usage descriptions from entitlements
-		const usageDescriptions = generateUsageDescriptions(
-			config.build.mac.entitlements || {},
-		);
-		// Generate URL scheme handlers
-		const urlTypes = generateURLTypes(
-			config.app.urlSchemes,
-			config.app.identifier,
-		);
-		// Generate document type associations
-		const documentTypes = generateDocumentTypes(
-			config.app.fileAssociations,
-			projectRoot,
-			config.app.identifier,
-		);
+			// Generate usage descriptions from entitlements
+			const usageDescriptions = generateUsageDescriptions(
+				config.build.mac.entitlements || {},
+			);
+			// Generate URL scheme handlers
+			const urlTypes = generateURLTypes(
+				config.app.urlSchemes,
+				config.app.identifier,
+			);
+			// Generate document type associations
+			const documentTypes = generateDocumentTypes(
+				config.app.fileAssociations,
+				projectRoot,
+				config.app.identifier,
+			);
 
-		// When using .icon format, CFBundleIconName is needed for Assets.car lookup
-		const iconName = config.build.mac?.icons?.endsWith(".icon")
-			? basename(config.build.mac.icons, ".icon")
-			: null;
+			// When using .icon format, CFBundleIconName is needed for Assets.car lookup
+			const iconName = config.build.mac?.icons?.endsWith(".icon")
+				? basename(config.build.mac.icons, ".icon")
+				: null;
 
-		InfoPlistContents = `<?xml version="1.0" encoding="UTF-8"?>
+			InfoPlistContents = `<?xml version="1.0" encoding="UTF-8"?>
 
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -2698,746 +2735,746 @@ Categories=Utility;Application;
     <string>APPL</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>${iconName ? `\n    <key>CFBundleIconName</key>\n <string>${iconName}</string>` : ""}${usageDescriptions ? "\n" +
-usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
-"\n" + documentTypes : ""}
+					usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
+						"\n" + documentTypes : ""}
 </dict>
 </plist>`;
 
-		await Bun.write(
-			join(appBundleFolderContentsPath, "Info.plist"),
-			InfoPlistContents,
-		);
-		// in dev builds the log file is a named pipe so we can stream it back to the terminal
-		// in canary/stable builds it'll be a regular log file
-		//     const LauncherContents = `#!/bin/bash
-		// # change directory from whatever open was or double clicking on the app to the dir of the bin in the app bundle
-		// cd "$(dirname "$0")"/
+			await Bun.write(
+				join(appBundleFolderContentsPath, "Info.plist"),
+				InfoPlistContents,
+			);
+			// in dev builds the log file is a named pipe so we can stream it back to the terminal
+			// in canary/stable builds it'll be a regular log file
+			//     const LauncherContents = `#!/bin/bash
+			// # change directory from whatever open was or double clicking on the app to the dir of the bin in the app bundle
+			// cd "$(dirname "$0")"/
 
-		// # Define the log file path
-		// LOG_FILE="$HOME/${logPath}"
+			// # Define the log file path
+			// LOG_FILE="$HOME/${logPath}"
 
-		// # Ensure the directory exists
-		// mkdir -p "$(dirname "$LOG_FILE")"
+			// # Ensure the directory exists
+			// mkdir -p "$(dirname "$LOG_FILE")"
 
-		// if [[ ! -p $LOG_FILE ]]; then
-		//     mkfifo $LOG_FILE
-		// fi
+			// if [[ ! -p $LOG_FILE ]]; then
+			//     mkfifo $LOG_FILE
+			// fi
 
-		// # Execute bun and redirect stdout and stderr to the log file
-		// ./bun ../Resources/app/bun/index.js >"$LOG_FILE" 2>&1
-		// `;
+			// # Execute bun and redirect stdout and stderr to the log file
+			// ./bun ../Resources/app/bun/index.js >"$LOG_FILE" 2>&1
+			// `;
 
-		//     // Launcher binary
-		//     // todo (yoav): This will likely be a zig compiled binary in the future
-		//     Bun.write(join(appBundleMacOSPath, 'MyApp'), LauncherContents);
-		//     chmodSync(join(appBundleMacOSPath, 'MyApp'), '755');
-		// const zigLauncherBinarySource = join(projectRoot, 'node_modules', 'electrobun', 'src', 'launcher', 'zig-out', 'bin', 'launcher');
-		// const zigLauncherDestination = join(appBundleMacOSPath, 'MyApp');
-		// const destLauncherFolder = dirname(zigLauncherDestination);
-		// if (!existsSync(destLauncherFolder)) {
-		//     // console.info('creating folder: ', destFolder);
-		//     mkdirSync(destLauncherFolder, {recursive: true});
-		// }
-		// cpSync(zigLauncherBinarySource, zigLauncherDestination, {recursive: true, dereference: true});
-		// Copy zig launcher for all platforms
-		const bunCliLauncherBinarySource = targetPaths.LAUNCHER_RELEASE;
-		const bunCliLauncherDestination =
-			join(appBundleMacOSPath, "launcher") + targetBinExt;
-		const destLauncherFolder = dirname(bunCliLauncherDestination);
-		if (!existsSync(destLauncherFolder)) {
-			mkdirSync(destLauncherFolder, { recursive: true });
-		}
-
-		cpSync(bunCliLauncherBinarySource, bunCliLauncherDestination, {
-			recursive: true,
-			dereference: true,
-		});
-
-		// On Windows, ensure launcher has .exe extension
-		// Bun's cpSync on Windows may create files without .exe despite the destination path having it
-		if (targetOS === "win") {
-			const launcherWithoutExt = join(appBundleMacOSPath, "launcher");
-
-			// Use PowerShell to force rename and add .exe extension
-			// This bypasses Bun's PATHEXT behavior that treats launcher and launcher.exe as the same
-			try {
-				execSync(
-					`powershell -Command "if (Test-Path '${launcherWithoutExt}') { Rename-Item -Path '${launcherWithoutExt}' -NewName 'launcher.exe' -Force }"`,
-					{ stdio: "pipe" },
-				);
-				console.log(`Ensured launcher has .exe extension on Windows`);
-			} catch (error) {
-				console.warn(
-					`Warning: Could not rename launcher to launcher.exe: ${error}`,
-				);
+			//     // Launcher binary
+			//     // todo (yoav): This will likely be a zig compiled binary in the future
+			//     Bun.write(join(appBundleMacOSPath, 'MyApp'), LauncherContents);
+			//     chmodSync(join(appBundleMacOSPath, 'MyApp'), '755');
+			// const zigLauncherBinarySource = join(projectRoot, 'node_modules', 'electrobun', 'src', 'launcher', 'zig-out', 'bin', 'launcher');
+			// const zigLauncherDestination = join(appBundleMacOSPath, 'MyApp');
+			// const destLauncherFolder = dirname(zigLauncherDestination);
+			// if (!existsSync(destLauncherFolder)) {
+			//     // console.info('creating folder: ', destFolder);
+			//     mkdirSync(destLauncherFolder, {recursive: true});
+			// }
+			// cpSync(zigLauncherBinarySource, zigLauncherDestination, {recursive: true, dereference: true});
+			// Copy zig launcher for all platforms
+			const bunCliLauncherBinarySource = targetPaths.LAUNCHER_RELEASE;
+			const bunCliLauncherDestination =
+				join(appBundleMacOSPath, "launcher") + targetBinExt;
+			const destLauncherFolder = dirname(bunCliLauncherDestination);
+			if (!existsSync(destLauncherFolder)) {
+				mkdirSync(destLauncherFolder, { recursive: true });
 			}
-		}
 
-		// Embed icon into launcher.exe on Windows
-		if (targetOS === "win" && config.build.win?.icon) {
-			const iconSourcePath =
-				config.build.win.icon.startsWith("/") ||
-				config.build.win.icon.match(/^[a-zA-Z]:/)
-					? config.build.win.icon
-					: join(projectRoot, config.build.win.icon);
+			// cpSync(bunCliLauncherBinarySource, bunCliLauncherDestination, {
+			// 	recursive: true,
+			// 	dereference: true,
+			// });
+			// 直接调用，不需要传入 recursive 选项
+			safeCopyFile(bunCliLauncherBinarySource, bunCliLauncherDestination);
 
-			if (existsSync(iconSourcePath)) {
-				console.log(`Embedding icon into launcher.exe: ${iconSourcePath}`);
+			// On Windows, ensure launcher has .exe extension
+			// Bun's cpSync on Windows may create files without .exe despite the destination path having it
+			if (targetOS === "win") {
+				const launcherWithoutExt = join(appBundleMacOSPath, "launcher");
+
+				// Use PowerShell to force rename and add .exe extension
+				// This bypasses Bun's PATHEXT behavior that treats launcher and launcher.exe as the same
 				try {
-					let iconPath = iconSourcePath;
-
-					// Convert PNG to ICO if needed
-					if (iconSourcePath.toLowerCase().endsWith(".png")) {
-						const pngToIco = (await import("png-to-ico")).default;
-						const tempIcoPath = join(buildFolder, "temp-launcher-icon.ico");
-						const icoBuffer = await pngToIco(iconSourcePath);
-						writeFileSync(tempIcoPath, new Uint8Array(icoBuffer));
-						iconPath = tempIcoPath;
-						console.log(
-							`Converted PNG to ICO format for launcher: ${tempIcoPath}`,
-						);
-					}
-
-					// Use rcedit to embed the icon into launcher.exe
-										const { execFileSync } = await import("child_process");
-					const rceditPkgPath = require.resolve("rcedit/package.json");
-					const rceditDir = dirname(rceditPkgPath);
-					const rceditX64 = join(rceditDir, "bin", "rcedit-x64.exe");
-					const rceditExe = existsSync(rceditX64) ? rceditX64 : join(rceditDir, "bin", "rcedit.exe");
-					execFileSync(rceditExe, [bunCliLauncherDestination, "--set-icon", iconPath]);
-					console.log(`Successfully embedded icon into launcher.exe`);
-
-					// Clean up temp ICO file
-					if (iconPath !== iconSourcePath && existsSync(iconPath)) {
-						unlinkSync(iconPath);
-					}
+					execSync(
+						`powershell -Command "if (Test-Path '${launcherWithoutExt}') { Rename-Item -Path '${launcherWithoutExt}' -NewName 'launcher.exe' -Force }"`,
+						{ stdio: "pipe" },
+					);
+					console.log(`Ensured launcher has .exe extension on Windows`);
 				} catch (error) {
 					console.warn(
-						`Warning: Failed to embed icon into launcher.exe: ${error}`,
+						`Warning: Could not rename launcher to launcher.exe: ${error}`,
 					);
 				}
 			}
-		}
 
-		cpSync(targetPaths.PRELOAD_FULL_JS, join(appBundleFolderResourcesPath, "preload-full.js"), {
-			dereference: true,
-		});
-		cpSync(
-			targetPaths.PRELOAD_SANDBOXED_JS,
-			join(appBundleFolderResourcesPath, "preload-sandboxed.js"),
-			{
-				dereference: true,
-			},
-		);
-
-		if (mainProcess === "bun") {
-			cpSync(targetPaths.MAIN_JS, join(appBundleFolderResourcesPath, "main.js"), {
-				dereference: true,
-			});
-
-			// Bun runtime binary
-			// todo (yoav): this only works for the current architecture
-			const bunBinarySourcePath = await ensureBunBinary(
-				currentTarget.os,
-				currentTarget.arch,
-				config.build.bunVersion,
-				config.build.bunnyBun,
-			);
-			// Note: .bin/bun binary in node_modules is a symlink to the versioned one in another place
-			// in node_modules, so we have to dereference here to get the actual binary in the bundle.
-			const bunBinaryDestInBundlePath =
-				join(appBundleMacOSPath, "bun") + targetBinExt;
-			const destFolder2 = dirname(bunBinaryDestInBundlePath);
-			if (!existsSync(destFolder2)) {
-				mkdirSync(destFolder2, { recursive: true });
-			}
-			cpSync(bunBinarySourcePath, bunBinaryDestInBundlePath, {
-				dereference: true,
-			});
-
-			// Copy ICU data file if it exists (Linux/Windows external ICU builds)
-			// ICU version varies per platform WebKit build, so detect the filename dynamically
-			const bunDir = dirname(bunBinarySourcePath);
-			const icuDataFileName = readdirSync(bunDir).find((f) => /^icudt\d+l\.dat$/.test(f));
-			const icuDataSource = icuDataFileName ? join(bunDir, icuDataFileName) : "";
-			if (icuDataFileName && existsSync(icuDataSource) && targetOS !== "macos") {
-				const icuDataDest = join(appBundleMacOSPath, icuDataFileName);
-
-				const locales = config.build?.locales;
-				if (locales && locales !== "*" && Array.isArray(locales) && locales.length > 0) {
-					try {
-						await trimICUData(icuDataSource, icuDataDest, locales);
-						const originalSize = statSync(icuDataSource).size;
-						const trimmedSize = statSync(icuDataDest).size;
-						console.log(
-							`Trimmed ICU data: ${(originalSize / 1024 / 1024).toFixed(1)}MB → ${(trimmedSize / 1024 / 1024).toFixed(1)}MB (locales: ${locales.join(", ")})`,
-						);
-					} catch (error) {
-						console.warn(`Warning: Failed to trim ICU data, copying full file: ${error}`);
-						cpSync(icuDataSource, icuDataDest);
-					}
-				} else {
-					cpSync(icuDataSource, icuDataDest);
-					console.log(`Copied ICU data file: ${icuDataFileName}`);
-				}
-			}
-
-			// Embed icon into bun.exe on Windows
+			// Embed icon into launcher.exe on Windows
 			if (targetOS === "win" && config.build.win?.icon) {
 				const iconSourcePath =
 					config.build.win.icon.startsWith("/") ||
-					config.build.win.icon.match(/^[a-zA-Z]:/)
+						config.build.win.icon.match(/^[a-zA-Z]:/)
 						? config.build.win.icon
 						: join(projectRoot, config.build.win.icon);
 
 				if (existsSync(iconSourcePath)) {
-					console.log(`Embedding icon into bun.exe: ${iconSourcePath}`);
+					console.log(`Embedding icon into launcher.exe: ${iconSourcePath}`);
 					try {
 						let iconPath = iconSourcePath;
 
+						// Convert PNG to ICO if needed
 						if (iconSourcePath.toLowerCase().endsWith(".png")) {
 							const pngToIco = (await import("png-to-ico")).default;
-							const tempIcoPath = join(buildFolder, "temp-bun-icon.ico");
+							const tempIcoPath = join(buildFolder, "temp-launcher-icon.ico");
 							const icoBuffer = await pngToIco(iconSourcePath);
 							writeFileSync(tempIcoPath, new Uint8Array(icoBuffer));
 							iconPath = tempIcoPath;
 							console.log(
-								`Converted PNG to ICO format for bun.exe: ${tempIcoPath}`,
+								`Converted PNG to ICO format for launcher: ${tempIcoPath}`,
 							);
 						}
 
+						// Use rcedit to embed the icon into launcher.exe
 						const { execFileSync } = await import("child_process");
 						const rceditPkgPath = require.resolve("rcedit/package.json");
 						const rceditDir = dirname(rceditPkgPath);
 						const rceditX64 = join(rceditDir, "bin", "rcedit-x64.exe");
 						const rceditExe = existsSync(rceditX64) ? rceditX64 : join(rceditDir, "bin", "rcedit.exe");
-						execFileSync(rceditExe, [bunBinaryDestInBundlePath, "--set-icon", iconPath]);
-						console.log(`Successfully embedded icon into bun.exe`);
+						execFileSync(rceditExe, [bunCliLauncherDestination, "--set-icon", iconPath]);
+						console.log(`Successfully embedded icon into launcher.exe`);
 
+						// Clean up temp ICO file
 						if (iconPath !== iconSourcePath && existsSync(iconPath)) {
 							unlinkSync(iconPath);
 						}
 					} catch (error) {
-						console.warn(`Warning: Failed to embed icon into bun.exe: ${error}`);
+						console.warn(
+							`Warning: Failed to embed icon into launcher.exe: ${error}`,
+						);
 					}
 				}
 			}
-		} else if (zigMainBinarySourcePath) {
-			cpSync(zigMainBinarySourcePath, join(appBundleMacOSPath, "main") + targetBinExt, {
-				dereference: true,
-			});
-		}
 
-		// copy native wrapper dynamic library
-		if (targetOS === "macos") {
-			cpSync(targetPaths.CORE_MACOS, join(appBundleMacOSPath, "libElectrobunCore.dylib"), {
-				dereference: true,
-			});
-
-			const nativeWrapperMacosSource = targetPaths.NATIVE_WRAPPER_MACOS;
-			const nativeWrapperMacosDestination = join(
-				appBundleMacOSPath,
-				"libNativeWrapper.dylib",
+			safeCopyFile(
+				targetPaths.PRELOAD_FULL_JS,
+				join(appBundleFolderResourcesPath, "preload-full.js"),
 			);
-			cpSync(nativeWrapperMacosSource, nativeWrapperMacosDestination, {
-				dereference: true,
-			});
-		} else if (targetOS === "win") {
-			if (existsSync(targetPaths.CORE_WIN)) {
-						cpSync(targetPaths.CORE_WIN, join(appBundleMacOSPath, "ElectrobunCore.dll"), {
-							dereference: true,
-						});
+			safeCopyFile(
+				targetPaths.PRELOAD_SANDBOXED_JS,
+				join(appBundleFolderResourcesPath, "preload-sandboxed.js"),
+			);
+
+			if (mainProcess === "bun") {
+				safeCopyFile(
+					targetPaths.MAIN_JS,
+					join(appBundleFolderResourcesPath, "main.js"),
+				);
+
+				// Bun runtime binary
+				// todo (yoav): this only works for the current architecture
+				const bunBinarySourcePath = await ensureBunBinary(
+					currentTarget.os,
+					currentTarget.arch,
+					config.build.bunVersion,
+					config.build.bunnyBun,
+				);
+				// Note: .bin/bun binary in node_modules is a symlink to the versioned one in another place
+				// in node_modules, so we have to dereference here to get the actual binary in the bundle.
+				const bunBinaryDestInBundlePath =
+					join(appBundleMacOSPath, "bun") + targetBinExt;
+				const destFolder2 = dirname(bunBinaryDestInBundlePath);
+				if (!existsSync(destFolder2)) {
+					mkdirSync(destFolder2, { recursive: true });
+				}
+				safeCopyFile(bunBinarySourcePath, bunBinaryDestInBundlePath);
+
+				// Copy ICU data file if it exists (Linux/Windows external ICU builds)
+				// ICU version varies per platform WebKit build, so detect the filename dynamically
+				const bunDir = dirname(bunBinarySourcePath);
+				const icuDataFileName = readdirSync(bunDir).find((f) => /^icudt\d+l\.dat$/.test(f));
+				const icuDataSource = icuDataFileName ? join(bunDir, icuDataFileName) : "";
+				if (icuDataFileName && existsSync(icuDataSource) && targetOS !== "macos") {
+					const icuDataDest = join(appBundleMacOSPath, icuDataFileName);
+
+					const locales = config.build?.locales;
+					if (locales && locales !== "*" && Array.isArray(locales) && locales.length > 0) {
+						try {
+							await trimICUData(icuDataSource, icuDataDest, locales);
+							const originalSize = statSync(icuDataSource).size;
+							const trimmedSize = statSync(icuDataDest).size;
+							console.log(
+								`Trimmed ICU data: ${(originalSize / 1024 / 1024).toFixed(1)}MB → ${(trimmedSize / 1024 / 1024).toFixed(1)}MB (locales: ${locales.join(", ")})`,
+							);
+
+						} catch (error) {
+							console.warn(`Warning: Failed to trim ICU data, copying full file: ${error}`);
+							safeCopyFile(icuDataSource, icuDataDest);
+						}
 					} else {
-						console.log("  (ElectrobunCore.dll not found, skipping)");
+						safeCopyFile(icuDataSource, icuDataDest);
+						console.log(`Copied ICU data file: ${icuDataFileName}`);
 					}
-
-			const nativeWrapperMacosSource = targetPaths.NATIVE_WRAPPER_WIN;
-			const nativeWrapperMacosDestination = join(
-				appBundleMacOSPath,
-				"libNativeWrapper.dll",
-			);
-			cpSync(nativeWrapperMacosSource, nativeWrapperMacosDestination, {
-				dereference: true,
-			});
-
-			const webview2LibSource = targetPaths.WEBVIEW2LOADER_WIN;
-			const webview2LibDestination = join(
-				appBundleMacOSPath,
-				"WebView2Loader.dll",
-			);
-			// copy webview2 system webview library
-			cpSync(webview2LibSource, webview2LibDestination, { dereference: true });
-		} else if (targetOS === "linux") {
-			// Choose the appropriate native wrapper based on bundleCEF setting
-			const useCEF = config.build.linux?.bundleCEF;
-			cpSync(targetPaths.CORE_LINUX, join(appBundleMacOSPath, "libElectrobunCore.so"), {
-				dereference: true,
-			});
-			const nativeWrapperLinuxSource = useCEF
-				? targetPaths.NATIVE_WRAPPER_LINUX_CEF
-				: targetPaths.NATIVE_WRAPPER_LINUX;
-			const nativeWrapperLinuxDestination = join(
-				appBundleMacOSPath,
-				"libNativeWrapper.so",
-			);
-
-			if (existsSync(nativeWrapperLinuxSource)) {
-				cpSync(nativeWrapperLinuxSource, nativeWrapperLinuxDestination, {
-					dereference: true,
-				});
-				console.log(
-					`Using ${useCEF ? "CEF (with weak linking)" : "GTK-only"} native wrapper for Linux`,
-				);
-			} else {
-				throw new Error(
-					`Native wrapper not found: ${nativeWrapperLinuxSource}`,
-				);
-			}
-
-			// Copy icon if specified for Linux to a standard location
-			if (config.build.linux?.icon) {
-				const iconSourcePath = join(projectRoot, config.build.linux.icon);
-				if (existsSync(iconSourcePath)) {
-					const standardIconPath = join(
-						appBundleFolderResourcesPath,
-						"appIcon.png",
-					);
-
-					// Ensure Resources directory exists
-					mkdirSync(appBundleFolderResourcesPath, { recursive: true });
-
-					// Copy the icon to standard location
-					cpSync(iconSourcePath, standardIconPath, { dereference: true });
-					console.log(
-						`Copied Linux icon from ${iconSourcePath} to ${standardIconPath}`,
-					);
-
-					// Also copy icon for the extractor (expects it in Resources/app/icon.png before ASAR packaging)
-					const extractorIconPath = join(
-						appBundleFolderResourcesPath,
-						"app",
-						"icon.png",
-					);
-					mkdirSync(join(appBundleFolderResourcesPath, "app"), {
-						recursive: true,
-					});
-					cpSync(iconSourcePath, extractorIconPath, { dereference: true });
-					console.log(
-						`Copied Linux icon for extractor from ${iconSourcePath} to ${extractorIconPath}`,
-					);
-				} else {
-					console.log(`WARNING: Linux icon not found: ${iconSourcePath}`);
 				}
+
+				// Embed icon into bun.exe on Windows
+				if (targetOS === "win" && config.build.win?.icon) {
+					const iconSourcePath =
+						config.build.win.icon.startsWith("/") ||
+							config.build.win.icon.match(/^[a-zA-Z]:/)
+							? config.build.win.icon
+							: join(projectRoot, config.build.win.icon);
+
+					if (existsSync(iconSourcePath)) {
+						console.log(`Embedding icon into bun.exe: ${iconSourcePath}`);
+						try {
+							let iconPath = iconSourcePath;
+
+							if (iconSourcePath.toLowerCase().endsWith(".png")) {
+								const pngToIco = (await import("png-to-ico")).default;
+								const tempIcoPath = join(buildFolder, "temp-bun-icon.ico");
+								const icoBuffer = await pngToIco(iconSourcePath);
+								writeFileSync(tempIcoPath, new Uint8Array(icoBuffer));
+								iconPath = tempIcoPath;
+								console.log(
+									`Converted PNG to ICO format for bun.exe: ${tempIcoPath}`,
+								);
+							}
+
+							const { execFileSync } = await import("child_process");
+							const rceditPkgPath = require.resolve("rcedit/package.json");
+							const rceditDir = dirname(rceditPkgPath);
+							const rceditX64 = join(rceditDir, "bin", "rcedit-x64.exe");
+							const rceditExe = existsSync(rceditX64) ? rceditX64 : join(rceditDir, "bin", "rcedit.exe");
+							execFileSync(rceditExe, [bunBinaryDestInBundlePath, "--set-icon", iconPath]);
+							console.log(`Successfully embedded icon into bun.exe`);
+
+							if (iconPath !== iconSourcePath && existsSync(iconPath)) {
+								unlinkSync(iconPath);
+							}
+						} catch (error) {
+							console.warn(`Warning: Failed to embed icon into bun.exe: ${error}`);
+						}
+					}
+				}
+			} else if (zigMainBinarySourcePath) {
+				cpSync(zigMainBinarySourcePath, join(appBundleMacOSPath, "main") + targetBinExt, {
+					dereference: true,
+				});
 			}
-		}
 
-		// Download CEF binaries if needed when bundleCEF is enabled
-		if (
-			(targetOS === "macos" && config.build.mac?.bundleCEF) ||
-			(targetOS === "win" && config.build.win?.bundleCEF) ||
-			(targetOS === "linux" && config.build.linux?.bundleCEF)
-		) {
-			const effectiveCEFDir = await ensureCEFDependencies(
-				currentTarget.os,
-				currentTarget.arch,
-				config.build.cefVersion,
-			);
+			// copy native wrapper dynamic library
 			if (targetOS === "macos") {
-				const cefFrameworkSource = join(
-					effectiveCEFDir,
-					"Chromium Embedded Framework.framework",
-				);
-				const cefFrameworkDestination = join(
-					appBundleFolderFrameworksPath,
-					"Chromium Embedded Framework.framework",
-				);
-
-				cpSync(cefFrameworkSource, cefFrameworkDestination, {
-					recursive: true,
+				cpSync(targetPaths.CORE_MACOS, join(appBundleMacOSPath, "libElectrobunCore.dylib"), {
 					dereference: true,
 				});
 
-				// cef helpers
-				const cefHelperNames = getCEFHelperNames(mainProcess);
-
-				const helperSourcePath = targetPaths.CEF_HELPER_MACOS;
-				cefHelperNames.forEach((helperName) => {
-					const destinationPath = join(
-						appBundleFolderFrameworksPath,
-						`${helperName}.app`,
-						`Contents`,
-						`MacOS`,
-						`${helperName}`,
-					);
-
-					const destFolder4 = dirname(destinationPath);
-					if (!existsSync(destFolder4)) {
-						// console.info('creating folder: ', destFolder4);
-						mkdirSync(destFolder4, { recursive: true });
-					}
-					cpSync(helperSourcePath, destinationPath, {
-						recursive: true,
-						dereference: true,
-					});
+				const nativeWrapperMacosSource = targetPaths.NATIVE_WRAPPER_MACOS;
+				const nativeWrapperMacosDestination = join(
+					appBundleMacOSPath,
+					"libNativeWrapper.dylib",
+				);
+				cpSync(nativeWrapperMacosSource, nativeWrapperMacosDestination, {
+					dereference: true,
 				});
 			} else if (targetOS === "win") {
-				// Copy CEF DLLs from CEF directory to the main executable directory
-				const cefSourcePath = effectiveCEFDir;
-				const cefDllFiles = [
-					"libcef.dll",
-					"chrome_elf.dll",
-					"d3dcompiler_47.dll",
-					"dxcompiler.dll",
-					"dxil.dll",
-					"libEGL.dll",
-					"libGLESv2.dll",
-					"vk_swiftshader.dll",
-					"vulkan-1.dll",
-				];
-
-				cefDllFiles.forEach((dllFile) => {
-					const sourcePath = join(cefSourcePath, dllFile);
-					const destPath = join(appBundleMacOSPath, dllFile);
-					if (existsSync(sourcePath)) {
-						cpSync(sourcePath, destPath, { dereference: true });
-					}
-				});
-
-				// Copy icudtl.dat to MacOS root (same folder as libcef.dll) - required for CEF initialization
-				const icuDataSource = join(cefSourcePath, "icudtl.dat");
-				const icuDataDest = join(appBundleMacOSPath, "icudtl.dat");
-				if (existsSync(icuDataSource)) {
-					cpSync(icuDataSource, icuDataDest, { dereference: true });
+				if (existsSync(targetPaths.CORE_WIN)) {
+					cpSync(targetPaths.CORE_WIN, join(appBundleMacOSPath, "ElectrobunCore.dll"), {
+						dereference: true,
+					});
+				} else {
+					console.log("  (ElectrobunCore.dll not found, skipping)");
 				}
 
-				// Copy essential CEF pak files to MacOS root (same folder as libcef.dll) - required for CEF resources
-				const essentialPakFiles = [
-					"chrome_100_percent.pak",
-					"resources.pak",
-					"v8_context_snapshot.bin",
-				];
-				essentialPakFiles.forEach((pakFile) => {
-					const sourcePath = join(cefSourcePath, pakFile);
-					const destPath = join(appBundleMacOSPath, pakFile);
-
-					if (existsSync(sourcePath)) {
-						cpSync(sourcePath, destPath, { dereference: true });
-					} else {
-						console.log(`WARNING: Missing CEF file: ${sourcePath}`);
-					}
+				const nativeWrapperMacosSource = targetPaths.NATIVE_WRAPPER_WIN;
+				const nativeWrapperMacosDestination = join(
+					appBundleMacOSPath,
+					"libNativeWrapper.dll",
+				);
+				cpSync(nativeWrapperMacosSource, nativeWrapperMacosDestination, {
+					dereference: true,
 				});
 
-				// Copy CEF resources to MacOS/cef/ subdirectory for other resources like locales
-				const cefResourcesSource = effectiveCEFDir;
-				const cefResourcesDestination = join(appBundleMacOSPath, "cef");
+				const webview2LibSource = targetPaths.WEBVIEW2LOADER_WIN;
+				const webview2LibDestination = join(
+					appBundleMacOSPath,
+					"WebView2Loader.dll",
+				);
+				// copy webview2 system webview library
+				cpSync(webview2LibSource, webview2LibDestination, { dereference: true });
+			} else if (targetOS === "linux") {
+				// Choose the appropriate native wrapper based on bundleCEF setting
+				const useCEF = config.build.linux?.bundleCEF;
+				cpSync(targetPaths.CORE_LINUX, join(appBundleMacOSPath, "libElectrobunCore.so"), {
+					dereference: true,
+				});
+				const nativeWrapperLinuxSource = useCEF
+					? targetPaths.NATIVE_WRAPPER_LINUX_CEF
+					: targetPaths.NATIVE_WRAPPER_LINUX;
+				const nativeWrapperLinuxDestination = join(
+					appBundleMacOSPath,
+					"libNativeWrapper.so",
+				);
 
-				if (existsSync(cefResourcesSource)) {
-					cpSync(cefResourcesSource, cefResourcesDestination, {
+				if (existsSync(nativeWrapperLinuxSource)) {
+					cpSync(nativeWrapperLinuxSource, nativeWrapperLinuxDestination, {
+						dereference: true,
+					});
+					console.log(
+						`Using ${useCEF ? "CEF (with weak linking)" : "GTK-only"} native wrapper for Linux`,
+					);
+				} else {
+					throw new Error(
+						`Native wrapper not found: ${nativeWrapperLinuxSource}`,
+					);
+				}
+
+				// Copy icon if specified for Linux to a standard location
+				if (config.build.linux?.icon) {
+					const iconSourcePath = join(projectRoot, config.build.linux.icon);
+					if (existsSync(iconSourcePath)) {
+						const standardIconPath = join(
+							appBundleFolderResourcesPath,
+							"appIcon.png",
+						);
+
+						// Ensure Resources directory exists
+						mkdirSync(appBundleFolderResourcesPath, { recursive: true });
+
+						// Copy the icon to standard location
+						cpSync(iconSourcePath, standardIconPath, { dereference: true });
+						console.log(
+							`Copied Linux icon from ${iconSourcePath} to ${standardIconPath}`,
+						);
+
+						// Also copy icon for the extractor (expects it in Resources/app/icon.png before ASAR packaging)
+						const extractorIconPath = join(
+							appBundleFolderResourcesPath,
+							"app",
+							"icon.png",
+						);
+						mkdirSync(join(appBundleFolderResourcesPath, "app"), {
+							recursive: true,
+						});
+						cpSync(iconSourcePath, extractorIconPath, { dereference: true });
+						console.log(
+							`Copied Linux icon for extractor from ${iconSourcePath} to ${extractorIconPath}`,
+						);
+					} else {
+						console.log(`WARNING: Linux icon not found: ${iconSourcePath}`);
+					}
+				}
+			}
+
+			// Download CEF binaries if needed when bundleCEF is enabled
+			if (
+				(targetOS === "macos" && config.build.mac?.bundleCEF) ||
+				(targetOS === "win" && config.build.win?.bundleCEF) ||
+				(targetOS === "linux" && config.build.linux?.bundleCEF)
+			) {
+				const effectiveCEFDir = await ensureCEFDependencies(
+					currentTarget.os,
+					currentTarget.arch,
+					config.build.cefVersion,
+				);
+				if (targetOS === "macos") {
+					const cefFrameworkSource = join(
+						effectiveCEFDir,
+						"Chromium Embedded Framework.framework",
+					);
+					const cefFrameworkDestination = join(
+						appBundleFolderFrameworksPath,
+						"Chromium Embedded Framework.framework",
+					);
+
+					cpSync(cefFrameworkSource, cefFrameworkDestination, {
 						recursive: true,
 						dereference: true,
 					});
-				}
 
-				// Copy CEF helper processes with different names
-				const cefHelperNames = getCEFHelperNames(mainProcess);
+					// cef helpers
+					const cefHelperNames = getCEFHelperNames(mainProcess);
 
-				const helperSourcePath = targetPaths.CEF_HELPER_WIN;
-				if (existsSync(helperSourcePath)) {
+					const helperSourcePath = targetPaths.CEF_HELPER_MACOS;
 					cefHelperNames.forEach((helperName) => {
 						const destinationPath = join(
-							appBundleMacOSPath,
-							`${helperName}.exe`,
+							appBundleFolderFrameworksPath,
+							`${helperName}.app`,
+							`Contents`,
+							`MacOS`,
+							`${helperName}`,
 						);
-						cpSync(helperSourcePath, destinationPath, { dereference: true });
-					});
-				} else {
-					console.log(`WARNING: Missing CEF helper: ${helperSourcePath}`);
-				}
-			} else if (targetOS === "linux") {
-				// Copy CEF shared libraries from platform-specific dist/cef/ to the main executable directory
-				const cefSourcePath = effectiveCEFDir;
 
-				if (existsSync(cefSourcePath)) {
-					const cefSoFiles = [
-						"libcef.so",
-						"libEGL.so",
-						"libGLESv2.so",
-						"libvk_swiftshader.so",
-						"libvulkan.so.1",
+						const destFolder4 = dirname(destinationPath);
+						if (!existsSync(destFolder4)) {
+							// console.info('creating folder: ', destFolder4);
+							mkdirSync(destFolder4, { recursive: true });
+						}
+						cpSync(helperSourcePath, destinationPath, {
+							recursive: true,
+							dereference: true,
+						});
+					});
+				} else if (targetOS === "win") {
+					// Copy CEF DLLs from CEF directory to the main executable directory
+					const cefSourcePath = effectiveCEFDir;
+					const cefDllFiles = [
+						"libcef.dll",
+						"chrome_elf.dll",
+						"d3dcompiler_47.dll",
+						"dxcompiler.dll",
+						"dxil.dll",
+						"libEGL.dll",
+						"libGLESv2.dll",
+						"vk_swiftshader.dll",
+						"vulkan-1.dll",
 					];
 
-					// Copy CEF .so files to main directory as symlinks to cef/ subdirectory
-					cefSoFiles.forEach((soFile) => {
-						const sourcePath = join(cefSourcePath, soFile);
-						// @ts-expect-error - reserved for future use
-						const _destPath = join(appBundleMacOSPath, soFile);
+					cefDllFiles.forEach((dllFile) => {
+						const sourcePath = join(cefSourcePath, dllFile);
+						const destPath = join(appBundleMacOSPath, dllFile);
 						if (existsSync(sourcePath)) {
-							// We'll create the actual file in cef/ and symlink from main directory
-							// This will be done after the cef/ directory is populated
+							cpSync(sourcePath, destPath, { dereference: true });
 						}
 					});
 
-					// Copy icudtl.dat to MacOS root (same folder as libcef.so) - required for CEF initialization
+					// Copy icudtl.dat to MacOS root (same folder as libcef.dll) - required for CEF initialization
 					const icuDataSource = join(cefSourcePath, "icudtl.dat");
 					const icuDataDest = join(appBundleMacOSPath, "icudtl.dat");
 					if (existsSync(icuDataSource)) {
 						cpSync(icuDataSource, icuDataDest, { dereference: true });
 					}
 
-					// Copy .pak files and other CEF resources to the main executable directory
-					const pakFiles = [
-						"icudtl.dat",
-						"v8_context_snapshot.bin",
-						"snapshot_blob.bin",
-						"resources.pak",
+					// Copy essential CEF pak files to MacOS root (same folder as libcef.dll) - required for CEF resources
+					const essentialPakFiles = [
 						"chrome_100_percent.pak",
-						"chrome_200_percent.pak",
-						"locales",
-						"chrome-sandbox",
-						"vk_swiftshader_icd.json",
+						"resources.pak",
+						"v8_context_snapshot.bin",
 					];
-					pakFiles.forEach((pakFile) => {
+					essentialPakFiles.forEach((pakFile) => {
 						const sourcePath = join(cefSourcePath, pakFile);
 						const destPath = join(appBundleMacOSPath, pakFile);
+
 						if (existsSync(sourcePath)) {
-							cpSync(sourcePath, destPath, {
-								recursive: true,
-								dereference: true,
-							});
+							cpSync(sourcePath, destPath, { dereference: true });
+						} else {
+							console.log(`WARNING: Missing CEF file: ${sourcePath}`);
 						}
 					});
 
-					// Copy locales to cef subdirectory
+					// Copy CEF resources to MacOS/cef/ subdirectory for other resources like locales
+					const cefResourcesSource = effectiveCEFDir;
 					const cefResourcesDestination = join(appBundleMacOSPath, "cef");
-					if (!existsSync(cefResourcesDestination)) {
-						mkdirSync(cefResourcesDestination, { recursive: true });
+
+					if (existsSync(cefResourcesSource)) {
+						cpSync(cefResourcesSource, cefResourcesDestination, {
+							recursive: true,
+							dereference: true,
+						});
 					}
-
-					// Copy all CEF shared libraries to cef subdirectory as well (for RPATH $ORIGIN/cef)
-					cefSoFiles.forEach((soFile) => {
-						const sourcePath = join(cefSourcePath, soFile);
-						const destPath = join(cefResourcesDestination, soFile);
-						if (existsSync(sourcePath)) {
-							cpSync(sourcePath, destPath, { dereference: true });
-							console.log(`Copied CEF library to cef subdirectory: ${soFile}`);
-						} else {
-							console.log(`WARNING: Missing CEF library: ${sourcePath}`);
-						}
-					});
-
-					// Copy essential CEF files to cef subdirectory as well (for RPATH $ORIGIN/cef)
-					const cefEssentialFiles = ["vk_swiftshader_icd.json"];
-					cefEssentialFiles.forEach((cefFile) => {
-						const sourcePath = join(cefSourcePath, cefFile);
-						const destPath = join(cefResourcesDestination, cefFile);
-						if (existsSync(sourcePath)) {
-							cpSync(sourcePath, destPath, { dereference: true });
-							console.log(
-								`Copied CEF essential file to cef subdirectory: ${cefFile}`,
-							);
-						} else {
-							console.log(`WARNING: Missing CEF essential file: ${sourcePath}`);
-						}
-					});
-
-					// Create symlinks from main directory to cef/ subdirectory for .so files
-					console.log("Creating symlinks for CEF libraries...");
-					cefSoFiles.forEach((soFile) => {
-						const cefFilePath = join(cefResourcesDestination, soFile);
-						const mainDirPath = join(appBundleMacOSPath, soFile);
-
-						if (existsSync(cefFilePath)) {
-							try {
-								// Remove any existing file/symlink in main directory
-								if (existsSync(mainDirPath)) {
-									rmSync(mainDirPath);
-								}
-								// Create symlink from main directory to cef/ subdirectory
-								symlinkSync(join("cef", soFile), mainDirPath);
-								console.log(
-									`Created symlink for CEF library: ${soFile} -> cef/${soFile}`,
-								);
-							} catch (error) {
-								console.log(
-									`WARNING: Failed to create symlink for ${soFile}: ${error}`,
-								);
-								// Fallback to copying the file
-								cpSync(cefFilePath, mainDirPath, { dereference: true });
-								console.log(
-									`Fallback: Copying CEF library to main directory: ${soFile}`,
-								);
-							}
-						}
-					});
 
 					// Copy CEF helper processes with different names
 					const cefHelperNames = getCEFHelperNames(mainProcess);
 
-					const helperSourcePath = targetPaths.CEF_HELPER_LINUX;
+					const helperSourcePath = targetPaths.CEF_HELPER_WIN;
 					if (existsSync(helperSourcePath)) {
 						cefHelperNames.forEach((helperName) => {
-							const destinationPath = join(appBundleMacOSPath, helperName);
+							const destinationPath = join(
+								appBundleMacOSPath,
+								`${helperName}.exe`,
+							);
 							cpSync(helperSourcePath, destinationPath, { dereference: true });
-							// console.log(`Copied CEF helper: ${helperName}`);
 						});
 					} else {
 						console.log(`WARNING: Missing CEF helper: ${helperSourcePath}`);
 					}
+				} else if (targetOS === "linux") {
+					// Copy CEF shared libraries from platform-specific dist/cef/ to the main executable directory
+					const cefSourcePath = effectiveCEFDir;
+
+					if (existsSync(cefSourcePath)) {
+						const cefSoFiles = [
+							"libcef.so",
+							"libEGL.so",
+							"libGLESv2.so",
+							"libvk_swiftshader.so",
+							"libvulkan.so.1",
+						];
+
+						// Copy CEF .so files to main directory as symlinks to cef/ subdirectory
+						cefSoFiles.forEach((soFile) => {
+							const sourcePath = join(cefSourcePath, soFile);
+							// @ts-expect-error - reserved for future use
+							const _destPath = join(appBundleMacOSPath, soFile);
+							if (existsSync(sourcePath)) {
+								// We'll create the actual file in cef/ and symlink from main directory
+								// This will be done after the cef/ directory is populated
+							}
+						});
+
+						// Copy icudtl.dat to MacOS root (same folder as libcef.so) - required for CEF initialization
+						const icuDataSource = join(cefSourcePath, "icudtl.dat");
+						const icuDataDest = join(appBundleMacOSPath, "icudtl.dat");
+						if (existsSync(icuDataSource)) {
+							cpSync(icuDataSource, icuDataDest, { dereference: true });
+						}
+
+						// Copy .pak files and other CEF resources to the main executable directory
+						const pakFiles = [
+							"icudtl.dat",
+							"v8_context_snapshot.bin",
+							"snapshot_blob.bin",
+							"resources.pak",
+							"chrome_100_percent.pak",
+							"chrome_200_percent.pak",
+							"locales",
+							"chrome-sandbox",
+							"vk_swiftshader_icd.json",
+						];
+						pakFiles.forEach((pakFile) => {
+							const sourcePath = join(cefSourcePath, pakFile);
+							const destPath = join(appBundleMacOSPath, pakFile);
+							if (existsSync(sourcePath)) {
+								cpSync(sourcePath, destPath, {
+									recursive: true,
+									dereference: true,
+								});
+							}
+						});
+
+						// Copy locales to cef subdirectory
+						const cefResourcesDestination = join(appBundleMacOSPath, "cef");
+						if (!existsSync(cefResourcesDestination)) {
+							mkdirSync(cefResourcesDestination, { recursive: true });
+						}
+
+						// Copy all CEF shared libraries to cef subdirectory as well (for RPATH $ORIGIN/cef)
+						cefSoFiles.forEach((soFile) => {
+							const sourcePath = join(cefSourcePath, soFile);
+							const destPath = join(cefResourcesDestination, soFile);
+							if (existsSync(sourcePath)) {
+								cpSync(sourcePath, destPath, { dereference: true });
+								console.log(`Copied CEF library to cef subdirectory: ${soFile}`);
+							} else {
+								console.log(`WARNING: Missing CEF library: ${sourcePath}`);
+							}
+						});
+
+						// Copy essential CEF files to cef subdirectory as well (for RPATH $ORIGIN/cef)
+						const cefEssentialFiles = ["vk_swiftshader_icd.json"];
+						cefEssentialFiles.forEach((cefFile) => {
+							const sourcePath = join(cefSourcePath, cefFile);
+							const destPath = join(cefResourcesDestination, cefFile);
+							if (existsSync(sourcePath)) {
+								cpSync(sourcePath, destPath, { dereference: true });
+								console.log(
+									`Copied CEF essential file to cef subdirectory: ${cefFile}`,
+								);
+							} else {
+								console.log(`WARNING: Missing CEF essential file: ${sourcePath}`);
+							}
+						});
+
+						// Create symlinks from main directory to cef/ subdirectory for .so files
+						console.log("Creating symlinks for CEF libraries...");
+						cefSoFiles.forEach((soFile) => {
+							const cefFilePath = join(cefResourcesDestination, soFile);
+							const mainDirPath = join(appBundleMacOSPath, soFile);
+
+							if (existsSync(cefFilePath)) {
+								try {
+									// Remove any existing file/symlink in main directory
+									if (existsSync(mainDirPath)) {
+										rmSync(mainDirPath);
+									}
+									// Create symlink from main directory to cef/ subdirectory
+									symlinkSync(join("cef", soFile), mainDirPath);
+									console.log(
+										`Created symlink for CEF library: ${soFile} -> cef/${soFile}`,
+									);
+								} catch (error) {
+									console.log(
+										`WARNING: Failed to create symlink for ${soFile}: ${error}`,
+									);
+									// Fallback to copying the file
+									cpSync(cefFilePath, mainDirPath, { dereference: true });
+									console.log(
+										`Fallback: Copying CEF library to main directory: ${soFile}`,
+									);
+								}
+							}
+						});
+
+						// Copy CEF helper processes with different names
+						const cefHelperNames = getCEFHelperNames(mainProcess);
+
+						const helperSourcePath = targetPaths.CEF_HELPER_LINUX;
+						if (existsSync(helperSourcePath)) {
+							cefHelperNames.forEach((helperName) => {
+								const destinationPath = join(appBundleMacOSPath, helperName);
+								cpSync(helperSourcePath, destinationPath, { dereference: true });
+								// console.log(`Copied CEF helper: ${helperName}`);
+							});
+						} else {
+							console.log(`WARNING: Missing CEF helper: ${helperSourcePath}`);
+						}
+					}
 				}
 			}
-		}
 
-		// Download WGPU (Dawn) binaries if needed when bundleWGPU is enabled
-		if (
-			(targetOS === "macos" && config.build.mac?.bundleWGPU) ||
-			(targetOS === "win" && config.build.win?.bundleWGPU) ||
-			(targetOS === "linux" && config.build.linux?.bundleWGPU)
-		) {
-			const effectiveWGPUDir = await ensureWGPUDependencies(
-				currentTarget.os,
-				currentTarget.arch,
-				config.build.wgpuVersion,
-			);
+			// Download WGPU (Dawn) binaries if needed when bundleWGPU is enabled
+			if (
+				(targetOS === "macos" && config.build.mac?.bundleWGPU) ||
+				(targetOS === "win" && config.build.win?.bundleWGPU) ||
+				(targetOS === "linux" && config.build.linux?.bundleWGPU)
+			) {
+				const effectiveWGPUDir = await ensureWGPUDependencies(
+					currentTarget.os,
+					currentTarget.arch,
+					config.build.wgpuVersion,
+				);
 
-			const libCandidates =
-				targetOS === "macos"
-					? [
+				const libCandidates =
+					targetOS === "macos"
+						? [
 							join(effectiveWGPUDir, "lib", "libwebgpu_dawn.dylib"),
 							join(effectiveWGPUDir, "lib", "libwebgpu_dawn_shared.dylib"),
 						]
-					: targetOS === "win"
-						? [
+						: targetOS === "win"
+							? [
 								join(effectiveWGPUDir, "bin", "webgpu_dawn.dll"),
 								join(effectiveWGPUDir, "bin", "libwebgpu_dawn.dll"),
 								join(effectiveWGPUDir, "lib", "webgpu_dawn.dll"),
 								join(effectiveWGPUDir, "lib", "libwebgpu_dawn.dll"),
 							]
-						: [
+							: [
 								join(effectiveWGPUDir, "lib", "libwebgpu_dawn.so"),
 								join(effectiveWGPUDir, "lib", "libwebgpu_dawn_shared.so"),
 							];
 
-			const libSource = libCandidates.find((p) => existsSync(p));
-			if (!libSource) {
-				throw new Error(
-					`WGPU shared library not found in ${effectiveWGPUDir}. Checked: ${libCandidates.join(", ")}`,
-				);
-			}
+				const libSource = libCandidates.find((p) => existsSync(p));
+				if (!libSource) {
+					throw new Error(
+						`WGPU shared library not found in ${effectiveWGPUDir}. Checked: ${libCandidates.join(", ")}`,
+					);
+				}
 
-			const libDest = join(appBundleMacOSPath, basename(libSource));
-			cpSync(libSource, libDest, { dereference: true });
-			console.log(`Copied WGPU library to bundle: ${libDest}`);
+				const libDest = join(appBundleMacOSPath, basename(libSource));
+				cpSync(libSource, libDest, { dereference: true });
+				console.log(`Copied WGPU library to bundle: ${libDest}`);
 
-			// On Windows, Dawn needs d3dcompiler_47.dll for D3D shader compilation.
-			// ARM64 Windows doesn't have an x64 version in system directories,
-			// so bundle it alongside the WGPU library.
-			if (targetOS === "win") {
-				const d3dCandidates = [
-					join(effectiveWGPUDir, "bin", "d3dcompiler_47.dll"),
-					join(ELECTROBUN_DEP_PATH, `dist-win-${currentTarget.arch}`, "d3dcompiler_47.dll"),
-					join(ELECTROBUN_DEP_PATH, "dist", "d3dcompiler_47.dll"),
-					join(targetPaths.CEF_DIR, "d3dcompiler_47.dll"),
-				];
-				const d3dSource = d3dCandidates.find((p) => existsSync(p));
-				if (d3dSource) {
-					const d3dDest = join(appBundleMacOSPath, "d3dcompiler_47.dll");
-					cpSync(d3dSource, d3dDest, { dereference: true });
-					console.log(`Copied d3dcompiler_47.dll to bundle: ${d3dDest}`);
+				// On Windows, Dawn needs d3dcompiler_47.dll for D3D shader compilation.
+				// ARM64 Windows doesn't have an x64 version in system directories,
+				// so bundle it alongside the WGPU library.
+				if (targetOS === "win") {
+					const d3dCandidates = [
+						join(effectiveWGPUDir, "bin", "d3dcompiler_47.dll"),
+						join(ELECTROBUN_DEP_PATH, `dist-win-${currentTarget.arch}`, "d3dcompiler_47.dll"),
+						join(ELECTROBUN_DEP_PATH, "dist", "d3dcompiler_47.dll"),
+						join(targetPaths.CEF_DIR, "d3dcompiler_47.dll"),
+					];
+					const d3dSource = d3dCandidates.find((p) => existsSync(p));
+					if (d3dSource) {
+						const d3dDest = join(appBundleMacOSPath, "d3dcompiler_47.dll");
+						cpSync(d3dSource, d3dDest, { dereference: true });
+						console.log(`Copied d3dcompiler_47.dll to bundle: ${d3dDest}`);
+					}
 				}
 			}
-		}
 
-		// copy native bindings
-		const bsPatchSource = targetPaths.BSPATCH;
-		const bsPatchDestination =
-			join(appBundleMacOSPath, "bspatch") + targetBinExt;
-		const bsPatchDestFolder = dirname(bsPatchDestination);
-		if (!existsSync(bsPatchDestFolder)) {
-			mkdirSync(bsPatchDestFolder, { recursive: true });
-		}
-
-		cpSync(bsPatchSource, bsPatchDestination, {
-			recursive: true,
-			dereference: true,
-		});
-
-		// Copy zig-zstd for updater tarball decompression
-		const zstdSource = targetPaths.ZSTD;
-		const zstdDestination = join(appBundleMacOSPath, "zig-zstd") + targetBinExt;
-		cpSync(zstdSource, zstdDestination, {
-			recursive: true,
-			dereference: true,
-		});
-
-		// Copy libasar dynamic library for ASAR support
-		const libExt =
-			targetOS === "win" ? ".dll" : targetOS === "macos" ? ".dylib" : ".so";
-
-		if (process.platform === "win32") {
-			// On Windows, copy BOTH x64 and ARM64 DLLs so launcher can choose at runtime
-			// (x64 Bun on ARM64 Windows can't detect real CPU architecture)
-			const x64DistPath = join(
-				ELECTROBUN_DEP_PATH,
-				"dist-win-x64",
-				"zig-asar",
-				"x64",
-				"libasar.dll",
-			);
-			const x64VendorPath = join(
-				ELECTROBUN_DEP_PATH,
-				"vendors",
-				"zig-asar",
-				"x64",
-				"libasar.dll",
-			);
-			const arm64DistPath = join(
-				ELECTROBUN_DEP_PATH,
-				"dist-win-x64",
-				"zig-asar",
-				"arm64",
-				"libasar.dll",
-			);
-			const arm64VendorPath = join(
-				ELECTROBUN_DEP_PATH,
-				"vendors",
-				"zig-asar",
-				"arm64",
-				"libasar.dll",
-			);
-
-			// Copy x64 version as default libasar.dll
-			const x64Source = existsSync(x64DistPath) ? x64DistPath : x64VendorPath;
-			if (existsSync(x64Source)) {
-				cpSync(x64Source, join(appBundleMacOSPath, "libasar.dll"), {
-					recursive: true,
-					dereference: true,
-				});
+			// copy native bindings
+			const bsPatchSource = targetPaths.BSPATCH;
+			const bsPatchDestination =
+				join(appBundleMacOSPath, "bspatch") + targetBinExt;
+			const bsPatchDestFolder = dirname(bsPatchDestination);
+			if (!existsSync(bsPatchDestFolder)) {
+				mkdirSync(bsPatchDestFolder, { recursive: true });
 			}
 
-			// Copy ARM64 version as libasar-arm64.dll
-			const arm64Source = existsSync(arm64DistPath)
-				? arm64DistPath
-				: arm64VendorPath;
-			if (existsSync(arm64Source)) {
-				cpSync(arm64Source, join(appBundleMacOSPath, "libasar-arm64.dll"), {
-					recursive: true,
-					dereference: true,
-				});
+			cpSync(bsPatchSource, bsPatchDestination, {
+				recursive: true,
+				dereference: true,
+			});
+
+			// Copy zig-zstd for updater tarball decompression
+			const zstdSource = targetPaths.ZSTD;
+			const zstdDestination = join(appBundleMacOSPath, "zig-zstd") + targetBinExt;
+			cpSync(zstdSource, zstdDestination, {
+				recursive: true,
+				dereference: true,
+			});
+
+			// Copy libasar dynamic library for ASAR support
+			const libExt =
+				targetOS === "win" ? ".dll" : targetOS === "macos" ? ".dylib" : ".so";
+
+			if (process.platform === "win32") {
+				// On Windows, copy BOTH x64 and ARM64 DLLs so launcher can choose at runtime
+				// (x64 Bun on ARM64 Windows can't detect real CPU architecture)
+				const x64DistPath = join(
+					ELECTROBUN_DEP_PATH,
+					"dist-win-x64",
+					"zig-asar",
+					"x64",
+					"libasar.dll",
+				);
+				const x64VendorPath = join(
+					ELECTROBUN_DEP_PATH,
+					"vendors",
+					"zig-asar",
+					"x64",
+					"libasar.dll",
+				);
+				const arm64DistPath = join(
+					ELECTROBUN_DEP_PATH,
+					"dist-win-x64",
+					"zig-asar",
+					"arm64",
+					"libasar.dll",
+				);
+				const arm64VendorPath = join(
+					ELECTROBUN_DEP_PATH,
+					"vendors",
+					"zig-asar",
+					"arm64",
+					"libasar.dll",
+				);
+
+				// Copy x64 version as default libasar.dll
+				const x64Source = existsSync(x64DistPath) ? x64DistPath : x64VendorPath;
+				if (existsSync(x64Source)) {
+					cpSync(x64Source, join(appBundleMacOSPath, "libasar.dll"), {
+						recursive: true,
+						dereference: true,
+					});
+				}
+
+				// Copy ARM64 version as libasar-arm64.dll
+				const arm64Source = existsSync(arm64DistPath)
+					? arm64DistPath
+					: arm64VendorPath;
+				if (existsSync(arm64Source)) {
+					cpSync(arm64Source, join(appBundleMacOSPath, "libasar-arm64.dll"), {
+						recursive: true,
+						dereference: true,
+					});
+				}
+			} else {
+				// macOS/Linux: single architecture
+				const asarLibSource = join(
+					dirname(targetPaths.BSPATCH),
+					"libasar" + libExt,
+				);
+				if (existsSync(asarLibSource)) {
+					const asarLibDestination = join(appBundleMacOSPath, "libasar" + libExt);
+					cpSync(asarLibSource, asarLibDestination, {
+						recursive: true,
+						dereference: true,
+					});
+				}
 			}
-		} else {
-			// macOS/Linux: single architecture
-			const asarLibSource = join(
-				dirname(targetPaths.BSPATCH),
-				"libasar" + libExt,
-			);
-			if (existsSync(asarLibSource)) {
-				const asarLibDestination = join(appBundleMacOSPath, "libasar" + libExt);
-				cpSync(asarLibSource, asarLibDestination, {
-					recursive: true,
-					dereference: true,
-				});
-			}
-		}
 		} // end if (!isCarrotOnly)
 
 		if (mainProcess === "bun") {
@@ -3546,7 +3583,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 			const bunEntryName = basename(config.build.bun.entrypoint).replace(/\.ts$/, ".js");
 			const workerSrc = join(bunOutputDir, bunEntryName);
 			if (existsSync(workerSrc)) {
-				cpSync(workerSrc, join(carrotBuildDir, "worker.js"));
+				safeCopyFile(workerSrc, join(carrotBuildDir, "worker.js"));
 			}
 
 			// Copy views
@@ -3688,7 +3725,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 				),
 				contributions:
 					carrotConfig.contributions &&
-					Object.keys(carrotConfig.contributions).length > 0
+						Object.keys(carrotConfig.contributions).length > 0
 						? carrotConfig.contributions
 						: undefined,
 				worker: { relativePath: "worker.js" },
@@ -4188,8 +4225,8 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 								console.error("\n" + "=".repeat(80));
 								console.error(
 									"WARNING: Patch generation failed (exit code " +
-										result.exitCode +
-										")",
+									result.exitCode +
+									")",
 								);
 								console.error(
 									"Delta updates will not be available for this release.",
@@ -4536,7 +4573,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 	// finishes shutting down gracefully.
 	// Call once per CLI session — returns a restore function.
 	async function takeoverForeground(): Promise<() => void> {
-		let restoreFn = () => {};
+		let restoreFn = () => { };
 		if (OS === "win") return restoreFn;
 		try {
 			const { dlopen, ptr } = await import("bun:ffi");
@@ -4570,7 +4607,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 									libc.symbols.signal(22, 1);
 									libc.symbols.tcsetpgrp(ttyFd, originalPgid);
 									libc.symbols.close(ttyFd);
-								} catch {}
+								} catch { }
 							};
 						} else {
 							libc.symbols.setpgid(0, originalPgid);
@@ -4678,7 +4715,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 			kill: () => {
 				try {
 					mainProc.kill();
-				} catch {}
+				} catch { }
 			},
 			exited: exitedPromise,
 		};
@@ -4701,7 +4738,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 				console.log("\n[electrobun dev] Force quitting...");
 				try {
 					process.kill(0, "SIGKILL");
-				} catch {}
+				} catch { }
 				process.exit(0);
 			}
 		});
@@ -4875,7 +4912,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 
 		function stopWatchers() {
 			for (const watcher of watchers) {
-				try { watcher.close(); } catch {}
+				try { watcher.close(); } catch { }
 			}
 			watchers = [];
 		}
@@ -4917,7 +4954,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 				appHandle.kill();
 				try {
 					await appHandle.exited;
-				} catch {}
+				} catch { }
 				appHandle = null;
 			}
 
@@ -4974,7 +5011,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 			} else {
 				try {
 					process.kill(0, "SIGKILL");
-				} catch {}
+				} catch { }
 				process.exit(0);
 			}
 		});
@@ -4996,7 +5033,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 		startWatchers();
 
 		// Keep the process alive
-		await new Promise(() => {});
+		await new Promise(() => { });
 	}
 
 	// Helper functions
@@ -5115,10 +5152,10 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 <plist version="1.0">
 <dict>
     ${Object.keys(entitlements)
-			.map((key) => {
-				return `<key>${key}</key>\n${getEntitlementValue(entitlements[key]!)}`;
-			})
-			.join("\n")}
+				.map((key) => {
+					return `<key>${key}</key>\n${getEntitlementValue(entitlements[key]!)}`;
+				})
+				.join("\n")}
 </dict>
 </plist>
 `;
@@ -5160,7 +5197,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 		if (config.build.win?.icon) {
 			const iconSourcePath =
 				config.build.win.icon.startsWith("/") ||
-				config.build.win.icon.match(/^[a-zA-Z]:/)
+					config.build.win.icon.match(/^[a-zA-Z]:/)
 					? config.build.win.icon
 					: join(projectRoot, config.build.win.icon);
 
@@ -5180,7 +5217,7 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 					}
 
 					// Use rcedit to embed the icon
-										const { execFileSync } = await import("child_process");
+					const { execFileSync } = await import("child_process");
 					const rceditPkgPath = require.resolve("rcedit/package.json");
 					const rceditDir = dirname(rceditPkgPath);
 					const rceditX64 = join(rceditDir, "bin", "rcedit-x64.exe");

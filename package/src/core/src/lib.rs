@@ -26,7 +26,6 @@ pub use error::ElectrobunError;
 pub use types::*;
 
 // Global state using thread-safe primitives
-// Zig: var window_registry = std.AutoHashMap(u32, WindowState).init(allocator)
 lazy_static::lazy_static! {
     static ref WINDOW_REGISTRY: Arc<Mutex<std::collections::HashMap<u32, crate::types::WindowState>>> = 
         Arc::new(Mutex::new(std::collections::HashMap::new()));
@@ -97,7 +96,7 @@ fn set_last_error(msg: &str) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Get the last error message (FFI)
-/// Zig: export fn electrobun_core_last_error() [*:0]const u8
+
 #[no_mangle]
 pub extern "C" fn electrobun_core_last_error() -> *const c_char {
     let err = LAST_ERROR.lock().unwrap();
@@ -108,14 +107,13 @@ pub extern "C" fn electrobun_core_last_error() -> *const c_char {
 }
 
 /// Get the wakeup file descriptor for message polling (FFI)
-/// Zig: export fn getHostMessageWakeupReadFD() c_int
+
 #[no_mangle]
 pub extern "C" fn electrobun_get_host_message_wakeup_read_fd() -> std::os::raw::c_int {
     transport::get_wakeup_fd().unwrap_or(-1)
 }
 
 /// Free a core-allocated string (FFI)
-/// Zig: export fn freeCoreString(value: ?[*:0]u8) void
 #[no_mangle]
 pub extern "C" fn electrobun_free_core_string(value: *mut c_char) {
     if !value.is_null() {
@@ -128,7 +126,7 @@ pub extern "C" fn electrobun_free_core_string(value: *mut c_char) {
 }
 
 /// Initialize the webview runtime (FFI)
-/// Zig: export fn initWebviewRuntime(...) void
+
 #[no_mangle]
 pub extern "C" fn electrobun_init_webview_runtime(
     preload_script: *const c_char,
@@ -527,7 +525,6 @@ pub extern "C" fn electrobun_set_tray_title(id: u32, title: *const c_char) -> bo
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Pop the next queued host message (FFI)
-/// Zig: export fn popNextQueuedHostMessage(out_webview_id: *u32) ?[*:0]u8
 #[no_mangle]
 pub extern "C" fn electrobun_pop_next_queued_host_message(
     out_webview_id: *mut u32,
