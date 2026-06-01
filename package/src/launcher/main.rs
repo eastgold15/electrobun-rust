@@ -25,10 +25,12 @@ static CHILD_PID: std::sync::Mutex<u32> = std::sync::Mutex::new(0);
 
 // ⑤ Zig: var should_exit = false
 //    同理用 Mutex
+#[allow(dead_code)]
 static SHOULD_EXIT: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
 
 // ⑥ Zig: var sigint_count = 0
 //    同理用 Mutex
+#[allow(dead_code)]
 static SIGINT_COUNT: std::sync::Mutex<u32> = std::sync::Mutex::new(0);
 
 
@@ -36,15 +38,16 @@ static SIGINT_COUNT: std::sync::Mutex<u32> = std::sync::Mutex::new(0);
 // Rust 用 #[cfg(target_os = "windows")] 属性
 
 #[cfg(target_os = "windows")]
+#[allow(dead_code, non_snake_case)]
 mod windows_imports {
     use std::os::windows::raw::HANDLE;
 
     // Zig: const BOOL = win.BOOL → Rust 直接用 i32
-    type BOOL = i32;
+    pub type BOOL = i32;
     // Zig: const DWORD = win.DWORD → Rust 直接用 u32
-    type DWORD = u32;
+    pub type DWORD = u32;
     // Zig: const LPWSTR = win.LPWSTR → Rust 用 *mut u16（UTF-16 字符串指针）
-    type LPWSTR = *mut u16;
+    pub type LPWSTR = *mut u16;
 
     // Zig: extern struct → Rust 用 #[repr(C)] 确保内存布局和 C 一致
     #[repr(C)]
@@ -272,22 +275,18 @@ fn main() {
     // ═══════════════════════════════════════════════════════
     // 根据平台和主进程类型，确定启动命令
     // ═══════════════════════════════════════════════════════
-    let (program, args): (&str, Vec<&str>) = match main_process {
+    let (program, args): (String, Vec<String>) = match main_process {
       MainProcess::Bun => {
+        let bun_name = format!("bun{}", std::env::consts::EXE_SUFFIX);
+        let bun_path = PathBuf::from(exe_dir).join(&bun_name);
         let resources_path = PathBuf::from(exe_dir)
             .join("..").join("Resources").join("main.js");
-        let resources_str = resources_path.to_str().unwrap();
-
-        // 一行搞定，不用 cfg 堆叠
-        let bun_name = format!("bun{}", std::env::consts::EXE_SUFFIX);
-
-        let bun_path = PathBuf::from(exe_dir).join(&bun_name);
-        (bun_path.to_str().unwrap(), vec![resources_str])
+        (bun_path.to_str().unwrap().to_string(), vec![resources_path.to_str().unwrap().to_string()])
     }
       MainProcess::Zig => {
         let main_name = format!("main{}", std::env::consts::EXE_SUFFIX);
         let main_path = PathBuf::from(exe_dir).join(main_name);
-        (main_path.to_str().unwrap(), vec![])
+        (main_path.to_str().unwrap().to_string(), vec![])
     }
 };
 
@@ -295,8 +294,9 @@ fn main() {
     // Zig 原文第 212-269 行：创建子进程 + 平台环境设置
     // ═══════════════════════════════════════════════════════
 
-    let mut cmd = process::Command::new(program);
-    cmd.args(&args);
+    let mut cmd = process::Command::new(&program);
+    let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    cmd.args(&args_refs);
     cmd.current_dir(exe_dir);
 
     // Linux 特殊处理：CEF 库路径
@@ -333,7 +333,7 @@ fn main() {
         cmd.env("ICU_DATA", exe_dir_str);
     }
 
-    println!("Spawning: {} {}", program, args.first().unwrap_or(&""));
+    println!("Spawning: {} {}", program, args.first().map(|s| s.as_str()).unwrap_or(""));
 
     // ═══════════════════════════════════════════════════════
     // Zig 原文第 274-289 行：判断是否为开发版本
@@ -373,8 +373,8 @@ fn main() {
 
         // Zig: std.unicode.utf8ToUtf16LeWithNull → 转 UTF-16
         // Rust: 用 widestring crate 或手动转换
-        let cmd_line_w: Vec<u16> = cmd_line.encode_utf16().chain(std::iter::once(0)).collect();
-        let cwd_w: Vec<u16> = exe_dir_str.encode_utf16().chain(std::iter::once(0)).collect();
+        let mut cmd_line_w: Vec<u16> = cmd_line.encode_utf16().chain(std::iter::once(0)).collect();
+        let mut cwd_w: Vec<u16> = exe_dir_str.encode_utf16().chain(std::iter::once(0)).collect();
 
         // Zig: var si: win.STARTUPINFOW = std.mem.zeroes(win.STARTUPINFOW);
         //       si.cb = @sizeOf(win.STARTUPINFOW);
@@ -394,7 +394,7 @@ fn main() {
                 0,                          // bInheritHandles
                 CREATE_NO_WINDOW,           // dwCreationFlags
                 std::ptr::null_mut(),       // lpEnvironment
-                cwd_w.as_ptr(),             // lpCurrentDirectory
+                cwd_w.as_mut_ptr(),             // lpCurrentDirectory
                 &mut si,                    // lpStartupInfo
                 &mut pi,                    // lpProcessInformation
             )
