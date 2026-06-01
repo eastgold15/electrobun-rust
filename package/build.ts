@@ -65,9 +65,6 @@ const PATH = {
 // These are sanity checks to detect failed downloads (e.g., HTML error pages)
 const MIN_DOWNLOAD_SIZES: Record<string, number> = {
 	bun: 10 * 1024 * 1024, // Bun zip should be > 10MB
-	"zig-asar": 100 * 1024, // zig-asar tarball should be > 100KB
-	"zig-bsdiff": 100 * 1024, // zig-bsdiff tarball should be > 100KB
-	"zig-zstd": 100 * 1024, // zig-zstd tarball should be > 100KB
 	wgpu: 1 * 1024 * 1024, // Dawn (WGPU) tarball should be > 1MB
 	cef: 50 * 1024 * 1024, // CEF tarball should be > 50MB
 };
@@ -489,21 +486,25 @@ async function setup() {
 	// Run vendors sequentially to avoid network/curl conflicts
 	// GitHub downloads have built-in pauses to avoid rate limiting
 	await vendorBun(); // GitHub
-	await vendorBsdiff(); // GitHub
-	await vendorZstd(); // GitHub
-	await vendorAsar(); // GitHub
 	await vendorWGPU(); // GitHub
 	await vendorCEF(); // Spotify CDN (not GitHub)
 	await vendorWebview2();
 	await vendorLinuxDeps();
 }
 
+async function buildTools() {
+	console.log(`Building tools for ${OS} ${ARCH} with Cargo...`);
+	const cargoArgs = CHANNEL === "release" ? ["--release"] : [];
+	await $`cd src/tools && cargo build ${cargoArgs}`;
+	console.log("✓ Rust tools built successfully");
+}
 async function build() {
 	await createDistFolder();
 	await BunInstall();
+	await buildTools();
 
-	// await buildAsar(); // Now using vendored binaries from zig-asar releases
-	await buildNative(); // zig depends on this for linking symbols
+	// await buildAsar(); // Now using Rust-built tools from src/tools
+	await buildNative(); // native wrapper for webview/CEF integration
 
 	// Generate template embeddings before building CLI
 	console.log("Generating template embeddings...");
@@ -561,7 +562,7 @@ async function copyToDist() {
 	// Bun runtime
 	await $`cp ${PATH.bun.RUNTIME} ${PATH.bun.DIST}`;
 	const sourceDir = CHANNEL === "release" ? "release" : "debug";
-	// Zig launcher for all platforms
+	// Rust launcher for all platforms
 	await $`cp src/launcher/target/${sourceDir}/launcher${binExt} dist/launcher${binExt}`;
 	await $`cp src/extractor/target/${sourceDir}/extractor${binExt} dist/extractor${binExt}`;
 	const coreLibName =
@@ -572,79 +573,23 @@ async function copyToDist() {
 				: "libElectrobunCore.so";
 const coreLibSourceDir = ""; // cargo outputs directly in target/release/
 	await $`cp ${join("src", "core", "target", sourceDir, coreLibSourceDir, coreLibName)} ${join("dist", coreLibName)}`;
-	// Copy bsdiff/bspatch from vendored zig-bsdiff
-	await $`cp vendors/zig-bsdiff/bsdiff${binExt} dist/bsdiff${binExt}`;
-	await $`cp vendors/zig-bsdiff/bspatch${binExt} dist/bspatch${binExt}`;
-	// Copy zig-zstd from vendored zig-zstd
-	await $`cp vendors/zig-zstd/zig-zstd${binExt} dist/zig-zstd${binExt}`;
+	// Copy bsdiff, bspatch, zig-zstd from Rust build
+	const toolSource = CHANNEL === "release" ? "release" : "debug";
+	await $`cp src/tools/target/${toolSource}/bsdiff${binExt} dist/bsdiff${binExt}`;
+	await $`cp src/tools/target/${toolSource}/bspatch${binExt} dist/bspatch${binExt}`;
+	await $`cp src/tools/target/${toolSource}/zig-zstd${binExt} dist/zig-zstd${binExt}`;
 
-	// Copy zig-asar CLI and library from vendored zig-asar
-	const libExt = OS === "win" ? ".dll" : OS === "macos" ? ".dylib" : ".so";
-
-	// Copy electrobun-dawn (WGPU) shared library only
-	const wgpuSourceDir = join(process.cwd(), "vendors", "wgpu", `${OS}-${ARCH}`);
-	if (existsSync(wgpuSourceDir)) {
-		const wgpuLibCandidates =
-			OS === "win"
-				? [
-						join(wgpuSourceDir, "bin", "webgpu_dawn.dll"),
-						join(wgpuSourceDir, "bin", "libwebgpu_dawn.dll"),
-						join(wgpuSourceDir, "lib", "webgpu_dawn.dll"),
-						join(wgpuSourceDir, "lib", "libwebgpu_dawn.dll"),
-					]
-				: [
-						join(wgpuSourceDir, "lib", `libwebgpu_dawn${libExt}`),
-						join(wgpuSourceDir, "lib", `libwebgpu_dawn_shared${libExt}`),
-					];
-
-		const wgpuLib = wgpuLibCandidates.find((p) => existsSync(p));
-		if (!wgpuLib) {
-			throw new Error(`WGPU shared library not found in ${wgpuSourceDir}`);
-		}
-		await $`cp ${wgpuLib} dist/${basename(wgpuLib)}`;
-		console.log("✓ Copied WGPU shared library to dist");
-
-		// On Windows, Dawn needs d3dcompiler_47.dll for D3D shader compilation.
-		// ARM64 Windows doesn't have an x64 version in system directories,
-		// so we must bundle it alongside the WGPU library.
-		if (OS === "win") {
-			const d3dCompilerCandidates = [
-				join(wgpuSourceDir, "bin", "d3dcompiler_47.dll"),
-				join(process.cwd(), "vendors", "cef", "Release", "d3dcompiler_47.dll"),
-			];
-			const d3dCompiler = d3dCompilerCandidates.find((p) => existsSync(p));
-			if (d3dCompiler) {
-				await $`cp ${d3dCompiler} dist/d3dcompiler_47.dll`;
-				console.log("✓ Copied d3dcompiler_47.dll to dist");
-			}
-		}
-	}
-
+	// Copy Rust-built ASAR CLI and shared library
 	if (OS === "win") {
-		// On Windows, copy both x64 and arm64 versions
-		// Note: DLL is needed by launcher to extract bun/index.js from ASAR
-		await $`mkdir -p dist/zig-asar/x64 dist/zig-asar/arm64`;
-
-		// Copy x64 version
-		await $`cp vendors/zig-asar/x64/zig-asar.exe dist/zig-asar/x64/zig-asar.exe`;
-		await $`cp vendors/zig-asar/x64/libasar.dll dist/zig-asar/x64/libasar.dll`;
-
-		// Copy arm64 version
-		await $`cp vendors/zig-asar/arm64/zig-asar.exe dist/zig-asar/arm64/zig-asar.exe`;
-		await $`cp vendors/zig-asar/arm64/libasar.dll dist/zig-asar/arm64/libasar.dll`;
-
-		console.log("✓ Copied both x64 and arm64 zig-asar to dist");
+		// Windows: single arch (Rust binary is native)
+		await $`cp src/tools/target/${toolSource}/zig-asar${binExt} dist/zig-asar${binExt}`;
+		await $`cp src/tools/target/${toolSource}/asar.dll dist/asar.dll`;
 	} else {
-		// Unix: single architecture
-		await $`cp vendors/zig-asar/zig-asar${binExt} dist/zig-asar${binExt}`;
-		const asarLibPath = `vendors/zig-asar/libasar${libExt}`;
-		if (existsSync(asarLibPath)) {
-			await $`cp ${asarLibPath} dist/libasar${libExt}`;
-		} else {
-			throw new Error(`Required library file not found: ${asarLibPath}`);
-		}
+		// Unix: copy CLI and shared library
+		var asarLibName = OS === "macos" ? "libasar.dylib" : "libasar.so";
+		await $`cp src/tools/target/${toolSource}/zig-asar${binExt} dist/zig-asar${binExt}`;
+		await $`cp src/tools/target/${toolSource}/${asarLibName} dist/${asarLibName}`;
 	}
-
 	// Verify critical files were copied
 	if (OS === "macos") {
 		const launcherPath = join("dist", `launcher${binExt}`);
@@ -934,338 +879,6 @@ async function vendorBun() {
 }
 
 
-
-async function vendorBsdiff() {
-	const BSDIFF_VERSION = "0.1.20";
-	const bsdiffDir = join(process.cwd(), "vendors", "zig-bsdiff");
-	const bsdiffBin = join(bsdiffDir, "bsdiff" + binExt);
-	const bspatchBin = join(bsdiffDir, "bspatch" + binExt);
-
-	// Check if binaries already exist
-	if (existsSync(bsdiffBin) && existsSync(bspatchBin)) {
-		return;
-	}
-
-	await pauseForGitHub();
-	console.log("Downloading zig-bsdiff binaries...");
-
-	// Map OS names to match GitHub release naming
-	const bsdiffPlatformMap: Record<string, string> = {
-		macos: "darwin",
-		win: "win32",
-		linux: "linux",
-	};
-	const bsdiffPlatform = bsdiffPlatformMap[OS];
-	const bsdiffArch = ARCH;
-
-	const tarballUrl = `https://github.com/blackboardsh/zig-bsdiff/releases/download/v${BSDIFF_VERSION}/zig-bsdiff-${bsdiffPlatform}-${bsdiffArch}.tar.gz`;
-	const tempTarball = join("vendors", `zig-bsdiff-temp.tar.gz`);
-
-	try {
-		// Download tarball
-		await $`mkdir -p vendors/zig-bsdiff`;
-		await $`curl -L "${tarballUrl}" -o "${tempTarball}"`;
-
-		// Validate download
-		validateDownload(tempTarball, "zig-bsdiff");
-
-		// Extract to vendors/zig-bsdiff
-		if (OS === "win") {
-			// Use tar on Windows (built-in on Windows 10+)
-			await $`tar -xzf "${tempTarball}" -C vendors/zig-bsdiff`;
-		} else {
-			await $`tar -xzf "${tempTarball}" -C vendors/zig-bsdiff`;
-		}
-
-		// Clean up temp file
-		await $`rm "${tempTarball}"`;
-
-		// Verify binaries were extracted
-		if (!existsSync(bsdiffBin) || !existsSync(bspatchBin)) {
-			throw new Error(`Binaries not found after extraction: ${bsdiffDir}`);
-		}
-
-		// Make executable on Unix systems
-		if (OS !== "win") {
-			await $`chmod +x ${bsdiffBin} ${bspatchBin}`;
-		}
-
-		console.log("✓ zig-bsdiff binaries downloaded successfully");
-	} catch (error: unknown) {
-		console.error(
-			"Failed to download zig-bsdiff binaries:",
-			error instanceof Error ? error.message : error,
-		);
-		throw new Error(
-			`Failed to download zig-bsdiff binaries. Please try again in a minute.`,
-		);
-	}
-}
-
-async function vendorZstd() {
-	const ZSTD_VERSION = "0.1.3";
-	const zstdDir = join(process.cwd(), "vendors", "zig-zstd");
-	const zstdBin = join(zstdDir, "zig-zstd" + binExt);
-
-	if (existsSync(zstdBin)) {
-		return;
-	}
-
-	await pauseForGitHub();
-	console.log("Downloading zig-zstd binaries...");
-
-	const zstdPlatformMap: Record<string, string> = {
-		macos: "darwin",
-		win: "win32",
-		linux: "linux",
-	};
-	const zstdPlatform = zstdPlatformMap[OS];
-	const zstdArch = ARCH;
-
-	const tempTarball = join("vendors", `zig-zstd-temp.tar.gz`);
-
-	try {
-		await $`mkdir -p vendors/zig-zstd`;
-		const tarballUrl = `https://github.com/blackboardsh/zig-zstd/releases/download/v${ZSTD_VERSION}/zig-zstd-${zstdPlatform}-${zstdArch}.tar.gz`;
-		console.log(`Downloading zig-zstd from: ${tarballUrl}`);
-		await $`rm -f "${tempTarball}"`;
-		const githubToken =
-			process.env["GITHUB_TOKEN"] ??
-			process.env["GH_TOKEN"] ??
-			process.env["GITHUB_ACCESS_TOKEN"];
-		if (githubToken) {
-			await $`curl -fL -H "Authorization: Bearer ${githubToken}" -H "Accept: application/octet-stream" "${tarballUrl}" -o "${tempTarball}"`;
-		} else {
-			await $`curl -fL -H "Accept: application/octet-stream" "${tarballUrl}" -o "${tempTarball}"`;
-		}
-		validateDownload(tempTarball, "zig-zstd");
-
-		await $`tar -xzf "${tempTarball}" -C vendors/zig-zstd`;
-
-		await $`rm "${tempTarball}"`;
-
-		if (!existsSync(zstdBin)) {
-			throw new Error(`Binary not found after extraction: ${zstdDir}`);
-		}
-
-		if (OS !== "win") {
-			await $`chmod +x ${zstdBin}`;
-		}
-
-		console.log("✓ zig-zstd binaries downloaded successfully");
-	} catch (error: unknown) {
-		console.error(
-			"Failed to download zig-zstd binaries:",
-			error instanceof Error ? error.message : error,
-		);
-		throw new Error(
-			`Failed to download zig-zstd binaries. Please try again in a minute.`,
-		);
-	}
-}
-
-async function vendorWGPU() {
-	const WGPU_VERSION = "0.2.3";
-	const wgpuBaseDir = join(process.cwd(), "vendors", "wgpu");
-	const wgpuDir = join(wgpuBaseDir, `${OS}-${ARCH}`);
-	const wgpuVersionFile = join(wgpuBaseDir, ".wgpu-version");
-	const currentVersion = existsSync(wgpuVersionFile)
-		? readFileSync(wgpuVersionFile, "utf8").trim()
-		: null;
-
-	const libExt = OS === "win" ? ".dll" : OS === "macos" ? ".dylib" : ".so";
-	const libCandidates =
-		OS === "win"
-			? [
-					join(wgpuDir, "bin", "webgpu_dawn.dll"),
-					join(wgpuDir, "bin", "libwebgpu_dawn.dll"),
-					join(wgpuDir, "lib", "webgpu_dawn.dll"),
-					join(wgpuDir, "lib", "libwebgpu_dawn.dll"),
-				]
-			: [
-					join(wgpuDir, "lib", `libwebgpu_dawn${libExt}`),
-					join(wgpuDir, "lib", `libwebgpu_dawn_shared${libExt}`),
-				];
-
-	if (libCandidates.some((p) => existsSync(p)) && currentVersion === WGPU_VERSION) {
-		return;
-	}
-
-	if (libCandidates.some((p) => existsSync(p)) && !currentVersion) {
-		writeFileSync(wgpuVersionFile, WGPU_VERSION);
-		return;
-	}
-
-	if (currentVersion && currentVersion !== WGPU_VERSION && existsSync(wgpuDir)) {
-		await $`rm -rf "${wgpuDir}"`;
-	}
-
-	await pauseForGitHub();
-	console.log("Downloading electrobun-dawn binaries...");
-
-	const platformMap: Record<string, string> = {
-		macos: "darwin",
-		win: "win32",
-		linux: "linux",
-	};
-	const platformName = platformMap[OS];
-	const archName = ARCH;
-
-	const tarballUrl = `https://github.com/blackboardsh/electrobun-dawn/releases/download/v${WGPU_VERSION}/electrobun-dawn-${platformName}-${archName}.tar.gz`;
-	const tempTarball = join("vendors", `electrobun-dawn-temp.tar.gz`);
-	const tempExtractDir = join("vendors", `electrobun-dawn-extract-${Date.now()}`);
-
-	try {
-		await $`mkdir -p "${wgpuBaseDir}"`;
-		await $`rm -f "${tempTarball}"`;
-
-		const githubToken =
-			process.env["GITHUB_TOKEN"] ??
-			process.env["GH_TOKEN"] ??
-			process.env["GITHUB_ACCESS_TOKEN"];
-		if (githubToken) {
-			await $`curl -fL -H "Authorization: Bearer ${githubToken}" -H "Accept: application/octet-stream" "${tarballUrl}" -o "${tempTarball}"`;
-		} else {
-			await $`curl -fL -H "Accept: application/octet-stream" "${tarballUrl}" -o "${tempTarball}"`;
-		}
-
-		validateDownload(tempTarball, "wgpu");
-
-		await $`rm -rf "${tempExtractDir}"`;
-		await $`mkdir -p "${tempExtractDir}"`;
-		await $`tar -xzf "${tempTarball}" -C "${tempExtractDir}"`;
-
-		const extracted = readdirSync(tempExtractDir);
-		if (extracted.length === 1) {
-			const single = join(tempExtractDir, extracted[0]!);
-			if (existsSync(wgpuDir)) {
-				await $`rm -rf "${wgpuDir}"`;
-			}
-			await $`mv "${single}" "${wgpuDir}"`;
-		} else {
-			if (existsSync(wgpuDir)) {
-				await $`rm -rf "${wgpuDir}"`;
-			}
-			await $`mkdir -p "${wgpuDir}"`;
-			for (const item of extracted) {
-				await $`mv "${join(tempExtractDir, item)}" "${wgpuDir}/"`;
-			}
-		}
-
-		await $`rm -rf "${tempExtractDir}"`;
-		await $`rm -f "${tempTarball}"`;
-
-		if (!libCandidates.some((p) => existsSync(p))) {
-			throw new Error(`WGPU library not found after extraction: ${wgpuDir}`);
-		}
-
-		writeFileSync(wgpuVersionFile, WGPU_VERSION);
-
-		// Regenerate Bun FFI bindings when WGPU version changes
-		if (!existsSync(join(process.cwd(), "src", "bun", "webGPU.ts"))) {
-			await $`node scripts/gen-webgpu-ffi.mjs`;
-		} else if (currentVersion !== WGPU_VERSION) {
-			await $`node scripts/gen-webgpu-ffi.mjs`;
-		}
-
-		console.log("✓ electrobun-dawn binaries downloaded successfully");
-	} catch (error: unknown) {
-		console.error(
-			"Failed to download electrobun-dawn binaries:",
-			error instanceof Error ? error.message : error,
-		);
-		throw new Error(
-			`Failed to download electrobun-dawn binaries. Please try again in a minute.`,
-		);
-	}
-}
-
-async function vendorAsar() {
-	const ASAR_VERSION = "0.2.2";
-	const asarBaseDir = join(process.cwd(), "vendors", "zig-asar");
-
-	// Map OS names to match GitHub release naming
-	const asarPlatformMap: Record<string, string> = {
-		macos: "darwin",
-		win: "win32",
-		linux: "linux",
-	};
-	const asarPlatform = asarPlatformMap[OS];
-
-	// On Windows, download both x64 and arm64 versions for development flexibility
-	// (allows testing on Windows ARM machines while shipping x64 binaries)
-	const archsToDownload = OS === "win" ? ["x64", "arm64"] : [ARCH];
-
-	for (const targetArch of archsToDownload) {
-		const asarDir = OS === "win" ? join(asarBaseDir, targetArch) : asarBaseDir;
-		const asarCli = join(asarDir, "zig-asar" + binExt);
-		const libExt = OS === "win" ? ".dll" : OS === "macos" ? ".dylib" : ".so";
-		const asarLib = join(asarDir, "libasar" + libExt);
-
-		// Check if binaries already exist for this architecture
-		// Note: All platforms need both CLI and library:
-		// - CLI: Used at build time to pack ASARs
-		// - Library: Used by launcher at runtime to extract bun/index.js from ASAR
-		//   (Native wrapper on Windows has built-in C++ reader for views:// files)
-		const requiredFiles = [asarCli, asarLib];
-
-		if (requiredFiles.every((f) => existsSync(f))) {
-			continue; // Already have this architecture
-		}
-
-		await pauseForGitHub();
-		console.log(
-			`Downloading zig-asar binaries for ${asarPlatform}-${targetArch}...`,
-		);
-
-		const tarballUrl = `https://github.com/blackboardsh/zig-asar/releases/download/v${ASAR_VERSION}/zig-asar-${asarPlatform}-${targetArch}.tar.gz`;
-		const tempTarball = join("vendors", `zig-asar-temp-${targetArch}.tar.gz`);
-
-		try {
-			// Download tarball
-			await $`mkdir -p "${asarDir}"`;
-			await $`curl -L "${tarballUrl}" -o "${tempTarball}"`;
-
-			// Validate download
-			validateDownload(tempTarball, "zig-asar");
-
-			// Extract to architecture-specific directory
-			await $`tar -xzf "${tempTarball}" -C "${asarDir}"`;
-
-			// Clean up temp file
-			await $`rm "${tempTarball}"`;
-
-			// Verify binaries were extracted
-			const missingFiles = requiredFiles.filter((f) => !existsSync(f));
-			if (missingFiles.length > 0) {
-				console.error("Missing files after extraction:", missingFiles);
-				console.error("Files found in", asarDir + ":");
-				if (existsSync(asarDir)) {
-					const files = await $`ls -la "${asarDir}"`.quiet();
-					console.error(files.stdout.toString());
-				}
-				throw new Error(`Required ASAR files not found after extraction`);
-			}
-
-			// Make executable on Unix systems
-			if (OS !== "win") {
-				await $`chmod +x ${asarCli}`;
-			}
-
-			console.log(
-				`✓ zig-asar binaries for ${targetArch} downloaded successfully`,
-			);
-		} catch (error: unknown) {
-			console.error(
-				`Failed to download zig-asar binaries for ${targetArch}:`,
-				error instanceof Error ? error.message : error,
-			);
-			throw new Error(
-				`Failed to download zig-asar binaries. Please try again in a minute.`,
-			);
-		}
-	}
-}
 
 async function vendorCEF() {
 	// CEF_VERSION, CHROMIUM_VERSION, and DEFAULT_CEF_VERSION_STRING are imported from src/shared/cef-version.ts
@@ -1813,7 +1426,7 @@ async function buildNative() {
 			? `-I${wgpuIncludeDir}`
 			: "";
 		await $`mkdir -p src/native/macos/build && xcrun --sdk macosx clang++ -c src/native/macos/nativeWrapper.mm -o src/native/macos/build/nativeWrapper.o -fobjc-arc -fno-objc-msgsend-selector-stubs -I./vendors/cef ${wgpuIncludeFlag} -std=c++20`;
-		await $`mkdir -p src/native/build && xcrun --sdk macosx clang++ -o src/native/build/libNativeWrapper.dylib src/native/macos/build/nativeWrapper.o ./vendors/zig-asar/libasar.dylib -framework Cocoa -framework WebKit -framework QuartzCore -framework Metal -framework MetalKit -framework UserNotifications -F./vendors/cef/Release -weak_framework 'Chromium Embedded Framework' -L./vendors/cef/build/libcef_dll_wrapper -lcef_dll_wrapper -stdlib=libc++ -shared -install_name @executable_path/libNativeWrapper.dylib -Wl,-rpath,@executable_path`;
+		await $`mkdir -p src/native/build && xcrun --sdk macosx clang++ -o src/native/build/libNativeWrapper.dylib src/native/macos/build/nativeWrapper.o src/tools/target/release/libasar.dylib -framework Cocoa -framework WebKit -framework QuartzCore -framework Metal -framework MetalKit -framework UserNotifications -F./vendors/cef/Release -weak_framework 'Chromium Embedded Framework' -L./vendors/cef/build/libcef_dll_wrapper -lcef_dll_wrapper -stdlib=libc++ -shared -install_name @executable_path/libNativeWrapper.dylib -Wl,-rpath,@executable_path`;
 	} else if (OS === "win") {
 		const webview2Include = `./vendors/webview2/Microsoft.Web.WebView2/build/native/include`;
 		// Always use x64 for Windows since we only build x64 Windows binaries
@@ -1982,7 +1595,7 @@ async function buildNative() {
 			await $`mkdir -p src/native/build`;
 
 			// Build both GTK-only and CEF versions for Linux
-			const asarLib = join(process.cwd(), "vendors", "zig-asar", "libasar.so");
+			const asarLib = join(process.cwd(), "src", "tools", "target", sourceDir, "libasar.so");
 
 			console.log("Building GTK-only version (libNativeWrapper.so)");
 			const linkCmd = [
