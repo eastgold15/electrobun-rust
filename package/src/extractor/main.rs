@@ -3,17 +3,13 @@
 
 use std::env;
 use std::fs::{self, File};
-use std::io::{BufReader, Read, Seek, Write};
+use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 // Zig: const ARCHIVE_MARKER = "ELECTROBUN_ARCHIVE_V1"
 const ARCHIVE_MARKER: &[u8] = b"ELECTROBUN_ARCHIVE_V1";
 const METADATA_MARKER: &[u8] = b"ELECTROBUN_METADATA_V1";
-
-// Base64 constant
-const BASE64_STANDARD: base64::engine::general_purpose::GeneralPurpose = 
-    base64::engine::general_purpose::GeneralPurpose::new(&base64::engine::general_purpose::STANDARD);
 
 /// App metadata structure
 #[derive(Debug, Clone)]
@@ -27,14 +23,12 @@ struct AppMetadata {
 /// Progress indicator for extraction
 struct ProgressIndicator {
     child_process: Option<std::process::Child>,
-    app_name: String,
 }
 
 impl ProgressIndicator {
     fn new(metadata: &AppMetadata) -> Self {
         let mut indicator = ProgressIndicator {
             child_process: None,
-            app_name: metadata.name.clone(),
         };
 
         if let Err(_) = indicator.start_progress_dialog(metadata) {
@@ -173,6 +167,7 @@ fn read_embedded_metadata(
 }
 
 /// Find second occurrence of marker in buffer
+#[allow(dead_code)]
 fn find_second_occurrence(buffer: &[u8], marker: &[u8]) -> Option<usize> {
     let first_pos = memchr::memmem::find(buffer, marker)?;
     let search_start = first_pos + marker.len();
@@ -181,6 +176,7 @@ fn find_second_occurrence(buffer: &[u8], marker: &[u8]) -> Option<usize> {
 }
 
 /// Escape special characters for desktop file
+#[allow(dead_code)]
 fn escape_desktop_string(s: &str) -> String {
     let mut result = String::with_capacity(s.len() * 2);
     for c in s.chars() {
@@ -225,9 +221,8 @@ fn fix_executable_permissions(app_dir: &Path) -> Result<(), Box<dyn std::error::
     }
 
     // Find and fix .sh scripts
-    if !cfg!(target_os = "windows") {
-        fix_shell_scripts(app_dir)?;
-    }
+    #[cfg(not(target_os = "windows"))]
+    fix_shell_scripts(app_dir)?;
 
     Ok(())
 }
@@ -253,6 +248,12 @@ fn fix_shell_scripts(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
+#[allow(dead_code)]
+fn fix_shell_scripts(_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(())
+}
+
 /// Fix CEF symlinks
 fn fix_cef_symlinks(app_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let bin_dir = app_dir.join("bin");
@@ -275,7 +276,7 @@ fn fix_cef_symlinks(app_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
     for lib in cef_libs {
         let symlink_path = bin_dir.join(lib);
-        let target_path = format!("cef/{}", lib);
+        let _target_path = format!("cef/{}", lib);
 
         // Remove existing symlink/file if it exists
         let _ = fs::remove_file(&symlink_path);
@@ -319,10 +320,13 @@ fn remove_quarantine(_app_dir: &Path) -> Result<(), Box<dyn std::error::Error>> 
 }
 
 /// Create Linux desktop shortcut
+#[cfg(target_os = "linux")]
 fn create_desktop_shortcut(
     app_dir: &Path,
     metadata: &AppMetadata,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    use std::os::unix::fs::PermissionsExt;
+    
     let home = env::var("HOME")?;
     let desktop_dir = PathBuf::from(&home).join("Desktop");
 
@@ -407,7 +411,6 @@ fn create_desktop_shortcut(
                         let _ = file.write_all(new_content.as_bytes());
 
                         // Make executable
-                        use std::os::unix::fs::PermissionsExt;
                         let mut perms = fs::metadata(&desktop_path)?.permissions();
                         perms.set_mode(0o755);
                         let _ = fs::set_permissions(&desktop_path, perms);
@@ -424,7 +427,6 @@ fn create_desktop_shortcut(
                         if let Ok(mut file) = File::create(&applications_path) {
                             let _ = file.write_all(new_content.as_bytes());
 
-                            use std::os::unix::fs::PermissionsExt;
                             let mut perms = fs::metadata(&applications_path)?.permissions();
                             perms.set_mode(0o644);
                             let _ = fs::set_permissions(&applications_path, perms);
@@ -635,6 +637,7 @@ fn extract_tar(tar_data: &[u8], extract_dir: &Path) -> Result<(), Box<dyn std::e
 /// Tar pipe to filesystem
 fn tar_pipe_to_filesystem(dir: &Path, tar_data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
     const BLOCK_SIZE: usize = 512;
+    const BLOCK_SIZE_U64: u64 = BLOCK_SIZE as u64;
     let mut pos: usize = 0;
 
     loop {
@@ -679,8 +682,7 @@ fn tar_pipe_to_filesystem(dir: &Path, tar_data: &[u8]) -> Result<(), Box<dyn std
                 }
 
                 let file_path = dir.join(&file_name);
-                let block_size_u64 = BLOCK_SIZE as u64;
-                let rounded_size = ((file_size + block_size_u64 - 1) / block_size_u64) * block_size_u64;
+                let rounded_size = ((file_size + BLOCK_SIZE_U64 - 1) / BLOCK_SIZE_U64) * BLOCK_SIZE_U64;
 
                 if pos + file_size as usize <= tar_data.len() {
                     let mut file = File::create(&file_path)?;
@@ -693,8 +695,8 @@ fn tar_pipe_to_filesystem(dir: &Path, tar_data: &[u8]) -> Result<(), Box<dyn std
                 // Symbolic link
                 let link_target_size = file_size.min(1024) as usize;
                 if pos + link_target_size <= tar_data.len() {
-                    let link_target = String::from_utf8_lossy(&tar_data[pos..pos + link_target_size]);
-                    let link_path = dir.join(&file_name);
+                    let _link_target = String::from_utf8_lossy(&tar_data[pos..pos + link_target_size]);
+                    let _link_path = dir.join(&file_name);
 
                     // Create parent directory
                     if let Some(parent) = Path::new(&file_name).parent() {
@@ -710,12 +712,12 @@ fn tar_pipe_to_filesystem(dir: &Path, tar_data: &[u8]) -> Result<(), Box<dyn std
                     }
                 }
 
-                let rounded_size = ((file_size + block_size_u64 - 1) / block_size_u64) * block_size_u64;
+                let rounded_size = ((file_size + BLOCK_SIZE_U64 - 1) / BLOCK_SIZE_U64) * BLOCK_SIZE_U64;
                 pos += rounded_size as usize;
             }
             _ => {
                 // Skip other types
-                let rounded_size = ((file_size + block_size_u64 - 1) / block_size_u64) * block_size_u64;
+                let rounded_size = ((file_size + BLOCK_SIZE_U64 - 1) / BLOCK_SIZE_U64) * BLOCK_SIZE_U64;
                 pos += rounded_size as usize;
             }
         }
@@ -799,7 +801,7 @@ fn extract_and_install(
     println!("Decompressing",);
 
     // Decompress using zstd
-    let window_buffer = vec![0u8; 128 * 1024 * 1024]; // 128MB Buffer
+    let _window_buffer = vec![0u8; 128 * 1024 * 1024]; // 128MB Buffer
 
     let mut decompressor = zstd::Decoder::new(compressed_data)?;
 
@@ -1033,7 +1035,7 @@ fn extract_from_self() -> Result<bool, Box<dyn std::error::Error>> {
     println!("Extracting to: {:?}", self_extraction_dir);
 
     // Read compressed data
-    let archive_size = file_size as usize - (archive_offset + ARCHIVE_MARKER.len());
+    let _archive_size = file_size as usize - (archive_offset + ARCHIVE_MARKER.len());
     let compressed_data = search_buffer[archive_offset + ARCHIVE_MARKER.len()..].to_vec();
 
     extract_and_install(&compressed_data, &metadata, &self_extraction_dir, &app_dir)?;
