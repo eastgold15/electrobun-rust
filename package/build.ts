@@ -2144,18 +2144,18 @@ async function buildMainJs() {
 }
 
 async function buildSelfExtractor() {
-	const zigArgs =
-		OS === "win"
-			? ["-Dtarget=x86_64-windows", "-Dcpu=baseline"]
-			: ARCH === "x64"
-				? ["-Dcpu=baseline"]
-				: [];
+	// Build extractor with Cargo (Rust)
+	const cargoArgs = CHANNEL === "release" ? ["--release"] : [];
+	const targetArg = OS === "win" ? ["--target", "x86_64-pc-windows-msvc"] : [];
 
-	if (CHANNEL === "debug") {
-		await $`cd src/extractor && ../../vendors/zig/zig build ${zigArgs}`;
-	} else if (CHANNEL === "release") {
-		await $`cd src/extractor && ../../vendors/zig/zig build -Doptimize=ReleaseSmall ${zigArgs}`;
-	}
+	await $`cd src/extractor && cargo build ${cargoArgs} ${targetArg}`;
+
+	// Copy the built binary to the expected location
+	const binExt = OS === "win" ? ".exe" : "";
+	const sourceDir = CHANNEL === "release" ? "release" : "debug";
+	const targetDir = "zig-out/bin"; // Keep compatibility with existing paths
+	await $`mkdir -p src/extractor/${targetDir}`;
+	await $`cp src/extractor/target/${sourceDir}/extractor${binExt} src/extractor/${targetDir}/extractor${binExt}`;
 }
 
 async function buildCli() {
