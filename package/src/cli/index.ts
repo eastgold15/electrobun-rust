@@ -197,34 +197,13 @@ function getPlatformPaths(
 // @ts-expect-error - reserved for future use
 const _PATHS = getPlatformPaths(OS, ARCH);
 
-function getVendoredZigBinaryPath(): string {
-	return join(
-		ELECTROBUN_DEP_PATH,
-		"vendors",
-		"zig",
-		OS === "win" ? "zig.exe" : "zig",
-	);
-}
 
-function getZigTarget(
-	targetOS: "macos" | "win" | "linux",
-	targetArch: "arm64" | "x64",
-): string {
-	if (targetOS === "win") {
-		return "x86_64-windows";
-	}
-	if (targetOS === "linux") {
-		return targetArch === "arm64" ? "aarch64-linux" : "x86_64-linux";
-	}
-	return targetArch === "arm64" ? "aarch64-macos" : "x86_64-macos";
-}
 
-function getCEFHelperBaseName(mainProcess: "bun" | "zig"): string {
-	return mainProcess === "zig" ? "main" : "bun";
-}
 
-function getCEFHelperNames(mainProcess: "bun" | "zig"): string[] {
-	const baseName = getCEFHelperBaseName(mainProcess);
+
+
+function getCEFHelperNames(): string[] {
+	const baseName = getCEFHelperBaseName();
 	return [
 		`${baseName} Helper`,
 		`${baseName} Helper (Alerts)`,
@@ -234,97 +213,6 @@ function getCEFHelperNames(mainProcess: "bun" | "zig"): string[] {
 	];
 }
 
-async function buildZigMainExecutable(options: {
-	entrypoint: string;
-	buildFolder: string;
-	targetOS: "macos" | "win" | "linux";
-	targetArch: "arm64" | "x64";
-	buildEnvironment: "dev" | "canary" | "stable";
-}) {
-	const zigBinary = getVendoredZigBinaryPath();
-	if (!existsSync(zigBinary)) {
-		throw new Error(
-			`Vendored Zig compiler not found at ${zigBinary}. Rebuild electrobun/package so vendors/zig is available.`,
-		);
-	}
-
-	const zigSdkPath = join(ELECTROBUN_DEP_PATH, "dist", "zig-sdk", "electrobun.zig");
-	if (!existsSync(zigSdkPath)) {
-		throw new Error(`Electrobun Zig SDK not found at ${zigSdkPath}`);
-	}
-
-	const binExt = options.targetOS === "win" ? ".exe" : "";
-	const tempBuildDir = join(
-		options.buildFolder,
-		".electrobun-zig-main",
-		`${options.targetOS}-${options.targetArch}`,
-	);
-	const relativeZigSdkPath = path.relative(tempBuildDir, zigSdkPath) || ".";
-	const relativeEntrypointPath = path.relative(tempBuildDir, options.entrypoint) || ".";
-	const zigOutBin = join(tempBuildDir, "zig-out", "bin", "main" + binExt);
-	const buildScriptPath = join(tempBuildDir, "build.zig");
-	mkdirSync(tempBuildDir, { recursive: true });
-
-	const buildScript = `const std = @import("std");
-
-pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
-
-    const electrobun = b.createModule(.{
-        .root_source_file = b.path(${JSON.stringify(relativeZigSdkPath)}),
-    });
-
-    const exe = b.addExecutable(.{
-        .name = "main",
-        .root_source_file = b.path(${JSON.stringify(relativeEntrypointPath)}),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    exe.root_module.addImport("electrobun", electrobun);
-    exe.linkLibC();
-    b.installArtifact(exe);
-}
-`;
-	writeFileSync(buildScriptPath, buildScript, "utf8");
-
-	const zigArgs = [
-		"build",
-		`-Dtarget=${getZigTarget(options.targetOS, options.targetArch)}`,
-	];
-
-	if (options.targetOS === "win") {
-		zigArgs.push("-Dcpu=baseline");
-	}
-
-	if (options.buildEnvironment !== "dev") {
-		zigArgs.push("-Doptimize=ReleaseSmall");
-	}
-
-	const result = Bun.spawnSync([zigBinary, ...zigArgs], {
-		cwd: tempBuildDir,
-		stdio: ["ignore", "pipe", "pipe"],
-	});
-
-	if (result.exitCode !== 0) {
-		const stdout = result.stdout ? new TextDecoder().decode(result.stdout) : "";
-		const stderr = result.stderr ? new TextDecoder().decode(result.stderr) : "";
-		if (stdout.trim()) {
-			console.error(stdout);
-		}
-		if (stderr.trim()) {
-			console.error(stderr);
-		}
-		throw new Error("Build failed: zig main process compilation failed");
-	}
-
-	if (!existsSync(zigOutBin)) {
-		throw new Error(`Zig main process binary was not produced at ${zigOutBin}`);
-	}
-
-	return zigOutBin;
-}
 
 async function ensureCoreDependencies(
 	targetOS?: "macos" | "win" | "linux",
@@ -1680,7 +1568,7 @@ const defaultConfig = {
 	build: {
 		buildFolder: "build",
 		artifactFolder: "artifacts",
-		mainProcess: "bun" as "bun" | "zig",
+		mainProcess: "bun",
 		useAsar: false,
 		asarUnpack: undefined as string[] | undefined, // Glob patterns for files to exclude from ASAR (e.g., ["*.node", "*.dll"])
 		cefVersion: undefined as string | undefined, // Override CEF version: "CEF_VERSION+chromium-CHROMIUM_VERSION"
@@ -2617,7 +2505,7 @@ Categories=Utility;Application;
 		}
 		mkdirSync(buildFolder, { recursive: true });
 
-		const mainProcess = config.build.mainProcess ?? "bun";
+		const mainProcess = "bun" as const;
 		const bunConfig = config.build.bun;
 		const bunSource = join(projectRoot, bunConfig.entrypoint);
 		const zigConfig = config.build.zig;
@@ -2636,11 +2524,6 @@ Categories=Utility;Application;
 		}
 
 		const isCarrotOnly = config.build.carrot?.carrotOnly === true;
-		if (config.build.carrot && mainProcess === "zig") {
-			throw new Error(
-				`build.carrot is not supported with build.mainProcess = "zig" yet.`,
-			);
-		}
 
 		// build macos bundle
 		// Use display name (with spaces) for macOS bundle folders, sanitized name for other platforms
@@ -2673,16 +2556,6 @@ Categories=Utility;Application;
 			mkdirSync(appBundleAppCodePath, { recursive: true });
 		}
 
-		let zigMainBinarySourcePath: string | null = null;
-		if (mainProcess === "zig") {
-			zigMainBinarySourcePath = await buildZigMainExecutable({
-				entrypoint: zigSource,
-				buildFolder,
-				targetOS,
-				targetArch: targetARCH,
-				buildEnvironment,
-			});
-		}
 
 		// const bundledBunPath = join(appBundleMacOSPath, 'bun');
 		// cpSync(bunPath, bundledBunPath);
@@ -2768,7 +2641,6 @@ Categories=Utility;Application;
 			//     // todo (yoav): This will likely be a zig compiled binary in the future
 			//     Bun.write(join(appBundleMacOSPath, 'MyApp'), LauncherContents);
 			//     chmodSync(join(appBundleMacOSPath, 'MyApp'), '755');
-			// const zigLauncherBinarySource = join(projectRoot, 'node_modules', 'electrobun', 'src', 'launcher', 'zig-out', 'bin', 'launcher');
 			// const zigLauncherDestination = join(appBundleMacOSPath, 'MyApp');
 			// const destLauncherFolder = dirname(zigLauncherDestination);
 			// if (!existsSync(destLauncherFolder)) {
@@ -2959,10 +2831,6 @@ Categories=Utility;Application;
 						}
 					}
 				}
-			} else if (zigMainBinarySourcePath) {
-				cpSync(zigMainBinarySourcePath, join(appBundleMacOSPath, "main") + targetBinExt, {
-					dereference: true,
-				});
 			}
 
 			// copy native wrapper dynamic library
@@ -3095,7 +2963,7 @@ Categories=Utility;Application;
 					});
 
 					// cef helpers
-					const cefHelperNames = getCEFHelperNames(mainProcess);
+					const cefHelperNames = getCEFHelperNames();
 
 					const helperSourcePath = targetPaths.CEF_HELPER_MACOS;
 					cefHelperNames.forEach((helperName) => {
@@ -3176,7 +3044,7 @@ Categories=Utility;Application;
 					}
 
 					// Copy CEF helper processes with different names
-					const cefHelperNames = getCEFHelperNames(mainProcess);
+					const cefHelperNames = getCEFHelperNames();
 
 					const helperSourcePath = targetPaths.CEF_HELPER_WIN;
 					if (existsSync(helperSourcePath)) {
@@ -3308,7 +3176,7 @@ Categories=Utility;Application;
 						});
 
 						// Copy CEF helper processes with different names
-						const cefHelperNames = getCEFHelperNames(mainProcess);
+						const cefHelperNames = getCEFHelperNames();
 
 						const helperSourcePath = targetPaths.CEF_HELPER_LINUX;
 						if (existsSync(helperSourcePath)) {
@@ -3742,7 +3610,7 @@ Categories=Utility;Application;
 		}
 
 		// Run postBuild script — with carrot dir available if configured
-		runHook("postBuild", carrotBuildDir ? { ELECTROBUN_CARROT_DIR: carrotBuildDir } : {});
+		runHook("postBuild", carrotBuildDir ? { ELECTROBUN_CARROT_DIR: carrotBuildDir };
 
 		// Compress carrot artifact for non-dev builds
 		if (config.build.carrot && carrotBuildDir && buildEnvironment !== "dev") {
@@ -3996,7 +3864,7 @@ Categories=Utility;Application;
 			...(mainProcess === "bun"
 				? { bunVersion: config.build?.bunVersion ?? BUN_VERSION }
 				: {}),
-			...(config.build?.bunnyBun ? { bunnyBun: config.build.bunnyBun } : {}),
+			...(config.build?.bunnyBun ? { bunnyBun: config.build.bunnyBun },
 		};
 
 		// Include chromiumFlags only if the developer defined them
@@ -4755,13 +4623,8 @@ Categories=Utility;Application;
 		const watchDirs = new Set<string>();
 
 		// Bun entrypoint directory
-		if (config.build.mainProcess !== "zig" && config.build.bun?.entrypoint) {
+		if (config.build.bun?.entrypoint) {
 			watchDirs.add(join(projectRoot, dirname(config.build.bun.entrypoint)));
-		}
-
-		// Zig entrypoint directory
-		if (config.build.mainProcess === "zig" && config.build.zig?.entrypoint) {
-			watchDirs.add(join(projectRoot, dirname(config.build.zig.entrypoint)));
 		}
 
 		// View entrypoint directories
@@ -5425,8 +5288,8 @@ Categories=Utility;Application;
 		}
 
 		// Sign CEF helper apps (they're in the main Frameworks directory, not inside CEF framework)
-		const mainProcess = config.build.mainProcess ?? "bun";
-		const cefHelperApps = getCEFHelperNames(mainProcess).map(
+		const mainProcess = "bun" as const;
+		const cefHelperApps = getCEFHelperNames().map(
 			(helperName) => `${helperName}.app`,
 		);
 

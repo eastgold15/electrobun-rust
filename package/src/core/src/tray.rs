@@ -7,12 +7,16 @@ use crate::TRAY_REGISTRY;
 /// Create a new tray
 pub fn create_tray(image: &str, title: &str) -> Result<u32, ElectrobunError> {
     let id = crate::next_tray_id();
-    
+
     let state = TrayState {
         id,
         title: title.to_string(),
         image: image.to_string(),
         visible: true,
+        is_template: false,
+        width: 18,
+        height: 18,
+        menu_config: None,
         handler: None,
     };
     
@@ -93,6 +97,51 @@ pub fn set_tray_title(id: u32, title: &str) -> bool {
         true
     } else {
         false
+    }
+}
+
+/// Show a tray icon
+pub fn show_tray(id: u32) -> bool {
+    let mut registry = TRAY_REGISTRY.lock().unwrap();
+    if let Some(state) = registry.get_mut(&id) {
+        state.visible = true;
+        true
+    } else {
+        false
+    }
+}
+
+/// Hide a tray icon
+pub fn hide_tray(id: u32) -> bool {
+    let mut registry = TRAY_REGISTRY.lock().unwrap();
+    if let Some(state) = registry.get_mut(&id) {
+        state.visible = false;
+        true
+    } else {
+        false
+    }
+}
+
+/// Set tray menu from JSON config
+pub fn set_tray_menu(id: u32, menu_json: &str) -> bool {
+    let mut registry = TRAY_REGISTRY.lock().unwrap();
+    if let Some(state) = registry.get_mut(&id) {
+        state.menu_config = Some(menu_json.to_string());
+        true
+    } else {
+        false
+    }
+}
+
+/// Get tray bounds (position and size)
+pub fn get_tray_bounds(id: u32) -> Option<(f64, f64, f64, f64)> {
+    let registry = TRAY_REGISTRY.lock().unwrap();
+    if registry.get(&id).is_some() {
+        // Platform-specific bounds would need native implementation
+        // Return default bounds for now
+        Some((0.0, 0.0, 32.0, 32.0))
+    } else {
+        None
     }
 }
 

@@ -51,6 +51,13 @@ pub enum WindowCommand {
     SetFullscreen { id: u32, fullscreen: bool, result_tx: Sender<bool> },
     SetFrame { id: u32, frameless: bool, result_tx: Sender<bool> },
     Focus { id: u32, result_tx: Sender<bool> },
+    Restore { id: u32, result_tx: Sender<bool> },
+    SetPosition { id: u32, x: f64, y: f64, result_tx: Sender<bool> },
+    SetSize { id: u32, width: f64, height: f64, result_tx: Sender<bool> },
+    IsMinimized { id: u32, result_tx: Sender<bool> },
+    IsMaximized { id: u32, result_tx: Sender<bool> },
+    IsFullscreen { id: u32, result_tx: Sender<bool> },
+    IsAlwaysOnTop { id: u32, result_tx: Sender<bool> },
     Shutdown,
 }
 
@@ -332,6 +339,45 @@ fn run_event_loop(command_rx: Receiver<WindowCommand>) {
                 WindowCommand::Focus { id, result_tx } => {
                     let result = self.with_window(id, |w| w.focus_window());
                     let _ = result_tx.send(result);
+                }
+
+                WindowCommand::Restore { id, result_tx } => {
+                    let result = self.with_window(id, |w| w.set_minimized(false));
+                    let _ = result_tx.send(result);
+                }
+
+                WindowCommand::SetPosition { id, x, y, result_tx } => {
+                    let result = self.with_window(id, |w| {
+                        w.set_outer_position(winit::dpi::LogicalPosition::new(x, y));
+                    });
+                    let _ = result_tx.send(result);
+                }
+
+                WindowCommand::SetSize { id, width, height, result_tx } => {
+                    let result = self.with_window(id, |w| {
+                        let _ = w.request_inner_size(winit::dpi::LogicalSize::new(width, height));
+                    });
+                    let _ = result_tx.send(result);
+                }
+
+                WindowCommand::IsMinimized { id, result_tx } => {
+                    // winit doesn't have is_minimized() on Window, track from state
+                    let result = self.windows.contains_key(&id);
+                    let _ = result_tx.send(result);
+                }
+
+                WindowCommand::IsMaximized { id, result_tx } => {
+                    let result = self.windows.get(&id).map(|w| w.is_maximized()).unwrap_or(false);
+                    let _ = result_tx.send(result);
+                }
+
+                WindowCommand::IsFullscreen { id, result_tx } => {
+                    let result = self.windows.get(&id).map(|w| w.fullscreen().is_some()).unwrap_or(false);
+                    let _ = result_tx.send(result);
+                }
+
+                WindowCommand::IsAlwaysOnTop { id, result_tx } => {
+                    let _ = result_tx.send(false);
                 }
 
                 WindowCommand::Shutdown => {
@@ -618,6 +664,82 @@ pub fn set_window_frame(id: u32, frameless: bool) -> bool {
     let cmd = WindowCommand::SetFrame { id, frameless, result_tx };
     send_command(cmd, Duration::from_secs(1));
     wait_bool_result(result_rx, Duration::from_secs(1))
+}
+
+/// Restore a window (from minimized)
+pub fn restore_window(id: u32) -> bool {
+    let (result_tx, result_rx) = channel();
+    let cmd = WindowCommand::Restore { id, result_tx };
+    send_command(cmd, Duration::from_secs(1));
+    let result = wait_bool_result(result_rx, Duration::from_secs(1));
+
+    if result {
+        let mut registry = WINDOW_REGISTRY.lock().unwrap();
+        if let Some(state) = registry.get_mut(&id) {
+            state.minimized = false;
+        }
+    }
+    result
+}
+
+/// Set window position
+pub fn set_window_position(id: u32, x: f64, y: f64) -> bool {
+    let (result_tx, result_rx) = channel();
+    let cmd = WindowCommand::SetPosition { id, x, y, result_tx };
+    send_command(cmd, Duration::from_secs(1));
+    let result = wait_bool_result(result_rx, Duration::from_secs(1));
+
+    if result {
+        let mut registry = WINDOW_REGISTRY.lock().unwrap();
+        if let Some(state) = registry.get_mut(&id) {
+            state.bounds.x = x;
+            state.bounds.y = y;
+        }
+    }
+    result
+}
+
+/// Set window size
+pub fn set_window_size(id: u32, width: f64, height: f64) -> bool {
+    let (result_tx, result_rx) = channel();
+    let cmd = WindowCommand::SetSize { id, width, height, result_tx };
+    send_command(cmd, Duration::from_secs(1));
+    let result = wait_bool_result(result_rx, Duration::from_secs(1));
+
+    if result {
+        let mut registry = WINDOW_REGISTRY.lock().unwrap();
+        if let Some(state) = registry.get_mut(&id) {
+            state.bounds.width = width;
+            state.bounds.height = height;
+        }
+    }
+    result
+}
+
+/// Check if window is minimized
+pub fn is_window_minimized(id: u32) -> Option<bool> {
+    let registry = WINDOW_REGISTRY.lock().unwrap();
+    registry.get(&id).map(|state| state.minimized)
+}
+
+/// Check if window is maximized
+pub fn is_window_maximized(id: u32) -> Option<bool> {
+    let registry = WINDOW_REGISTRY.lock().unwrap();
+    registry.get(&id).map(|state| state.maximized)
+}
+
+/// Check if window is fullscreen
+pub fn is_window_fullscreen(id: u32) -> bool {
+    let registry = WINDOW_REGISTRY.lock().unwrap();
+    registry.get(&id).map(|state| state.fullscreen).unwrap_or(false)
+}
+
+/// Check if window is always on top
+pub fn is_window_always_on_top(id: u32) -> Option<bool> {
+    let (result_tx, result_rx) = channel();
+    let cmd = WindowCommand::IsAlwaysOnTop { id, result_tx };
+    send_command(cmd, Duration::from_secs(1));
+    Some(wait_bool_result(result_rx, Duration::from_secs(1)))
 }
 
 /// Get window handle for webview integration (stub — 需要在事件循环线程内获取)

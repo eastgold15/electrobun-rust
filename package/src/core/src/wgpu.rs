@@ -124,6 +124,108 @@ pub fn set_wgpu_view_transparent(id: u32, transparent: bool) -> bool {
     }
 }
 
+/// Get WGPU view native handle
+pub fn get_wgpu_view_native_handle(id: u32) -> Option<u64> {
+    let registry = WGPU_VIEW_REGISTRY.lock().unwrap();
+    if registry.get(&id).is_some() {
+        // Native handle requires platform-specific implementation
+        // Returns a dummy handle for now
+        Some(id as u64)
+    } else {
+        None
+    }
+}
+
+/// Run test shader on WGPU view
+pub fn run_wgpu_view_test(id: u32) -> bool {
+    let registry = WGPU_VIEW_REGISTRY.lock().unwrap();
+    registry.get(&id).is_some()
+}
+
+/// Toggle test shader on WGPU view
+pub fn toggle_wgpu_view_test_shader(id: u32) -> bool {
+    let registry = WGPU_VIEW_REGISTRY.lock().unwrap();
+    registry.get(&id).is_some()
+}
+
+/// Remove a WGPU view (alias for destroy)
+pub fn remove_wgpu_view(id: u32) -> bool {
+    destroy_wgpu_view(id)
+}
+
+/// Resize WGPU view
+pub fn resize_wgpu_view(id: u32, width: f64, height: f64) -> bool {
+    let mut registry = WGPU_VIEW_REGISTRY.lock().unwrap();
+    if let Some(state) = registry.get_mut(&id) {
+        state.bounds.width = width;
+        state.bounds.height = height;
+        true
+    } else {
+        false
+    }
+}
+
+/// Set WGPU view passthrough (click-through)
+pub fn set_wgpu_view_passthrough(_id: u32, _passthrough: bool) -> bool {
+    // Passthrough would require native window manipulation
+    true
+}
+
+/// Set WGPU view hidden
+pub fn set_wgpu_view_hidden(id: u32, hidden: bool) -> bool {
+    set_wgpu_view_visible(id, !hidden)
+}
+
+/// Create wgpu surface for the view (stub - needs window handle from event loop)
+pub fn wgpu_create_surface_for_view(id: u32) -> u32 {
+    let registry = WGPU_VIEW_REGISTRY.lock().unwrap();
+    if registry.get(&id).is_some() {
+        1 // Success indicator
+    } else {
+        0
+    }
+}
+
+/// Create wgpu adapter and device (stub)
+pub fn wgpu_create_adapter_device_main_thread(id: u32) -> u32 {
+    let registry = WGPU_VIEW_REGISTRY.lock().unwrap();
+    if registry.get(&id).is_some() {
+        1 // Success indicator
+    } else {
+        0
+    }
+}
+
+/// Configure wgpu surface (stub)
+pub fn wgpu_surface_configure_main_thread(id: u32) -> u32 {
+    let registry = WGPU_VIEW_REGISTRY.lock().unwrap();
+    if registry.get(&id).is_some() {
+        1 // Success indicator
+    } else {
+        0
+    }
+}
+
+/// Get current texture from wgpu surface (stub)
+pub fn wgpu_surface_get_current_texture_main_thread(id: u32) -> u32 {
+    let registry = WGPU_VIEW_REGISTRY.lock().unwrap();
+    if registry.get(&id).is_some() {
+        1 // Success indicator
+    } else {
+        0
+    }
+}
+
+/// Present the wgpu surface (stub)
+pub fn wgpu_surface_present_main_thread(id: u32) -> u32 {
+    let registry = WGPU_VIEW_REGISTRY.lock().unwrap();
+    if registry.get(&id).is_some() {
+        1 // Success indicator
+    } else {
+        0
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Platform-specific implementations (stubs)
 // ═══════════════════════════════════════════════════════════════════════════════

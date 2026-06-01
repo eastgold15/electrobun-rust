@@ -5,7 +5,7 @@
 ## 概述
 
 Electrobun 使用自定义构建系统（`build.ts`）来处理：
-- 依赖打包（Bun、Zig、CEF、WebView2）
+- 依赖打包（Bun、rust、CEF、WebView2）
 - 为每个平台构建原生包装器
 - 创建分发包
 

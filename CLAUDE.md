@@ -16,7 +16,7 @@ Electrobun 开发规范（Claude 版）
 - /package：Electrobun 主包源码
 - /kitchen：测试示例应用（综合演示项目）
 - /package/src/cli：命令行工具源码
-- /package/src/extractor：自解压程序源码（基于 Zig 语言开发）
+- /package/src/extractor：自解压程序源码
 - /package/src/native：各平台原生封装代码
 
 

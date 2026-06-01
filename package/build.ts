@@ -497,7 +497,6 @@ async function setup() {
 	await vendorZstd(); // GitHub
 	await vendorAsar(); // GitHub
 	await vendorWGPU(); // GitHub
-	await vendorZig(); // ziglang.org (not GitHub)
 	await vendorCEF(); // Spotify CDN (not GitHub)
 	await vendorWebview2();
 	await vendorLinuxDeps();
@@ -561,24 +560,22 @@ async function copyApiFiles() {
 		await $`cp -R src/shared dist/api/`;
 	}
 
-	await $`mkdir -p dist/zig-sdk`;
-	await $`cp src/zig-sdk/electrobun.zig dist/zig-sdk/electrobun.zig`;
-}
 
 async function copyToDist() {
 	// Bun runtime
 	await $`cp ${PATH.bun.RUNTIME} ${PATH.bun.DIST}`;
+	const sourceDir = CHANNEL === "release" ? "release" : "debug";
 	// Zig launcher for all platforms
-	await $`cp src/launcher/zig-out/bin/launcher${binExt} dist/launcher${binExt}`;
-	await $`cp src/extractor/zig-out/bin/extractor${binExt} dist/extractor${binExt}`;
+	await $`cp src/launcher/target/${sourceDir}/launcher${binExt} dist/launcher${binExt}`;
+	await $`cp src/extractor/target/${sourceDir}/extractor${binExt} dist/extractor${binExt}`;
 	const coreLibName =
 		OS === "win"
 			? "ElectrobunCore.dll"
 			: OS === "macos"
 				? "libElectrobunCore.dylib"
 				: "libElectrobunCore.so";
-	const coreLibSourceDir = OS === "win" ? "bin" : "lib";
-	await $`cp ${join("src", "core", "zig-out", coreLibSourceDir, coreLibName)} ${join("dist", coreLibName)}`;
+const coreLibSourceDir = ""; // cargo outputs directly in target/release/
+	await $`cp ${join("src", "core", "target", sourceDir, coreLibSourceDir, coreLibName)} ${join("dist", coreLibName)}`;
 	// Copy bsdiff/bspatch from vendored zig-bsdiff
 	await $`cp vendors/zig-bsdiff/bsdiff${binExt} dist/bsdiff${binExt}`;
 	await $`cp vendors/zig-bsdiff/bspatch${binExt} dist/bspatch${binExt}`;
@@ -940,24 +937,7 @@ async function vendorBun() {
 	writeFileSync(join("vendors", "bun", ".bun-version"), BUN_VERSION);
 }
 
-async function vendorZig() {
-	if (existsSync(PATH.zig.BIN)) {
-		return;
-	}
 
-	if (OS === "macos") {
-		const zigArch = ARCH === "arm64" ? "aarch64" : "x86_64";
-		await $`mkdir -p vendors/zig && curl -L https://ziglang.org/download/0.13.0/zig-macos-${zigArch}-0.13.0.tar.xz | tar -xJ --strip-components=1 -C vendors/zig zig-macos-${zigArch}-0.13.0/zig zig-macos-${zigArch}-0.13.0/lib  zig-macos-${zigArch}-0.13.0/doc`;
-	} else if (OS === "win") {
-		// Always use x64 for Windows since we only build x64 Windows binaries
-		const zigArch = "x86_64";
-		const zigFolder = `zig-windows-${zigArch}-0.13.0`;
-		await $`mkdir -p vendors/zig && curl -L https://ziglang.org/download/0.13.0/${zigFolder}.zip -o vendors/zig.zip && powershell -ExecutionPolicy Bypass -Command Expand-Archive -Path vendors/zig.zip -DestinationPath vendors/zig-temp && mv vendors/zig-temp/${zigFolder}/zig.exe vendors/zig && mv vendors/zig-temp/${zigFolder}/lib vendors/zig/`;
-	} else if (OS === "linux") {
-		const zigArch = ARCH === "arm64" ? "aarch64" : "x86_64";
-		await $`mkdir -p vendors/zig && curl -L https://ziglang.org/download/0.13.0/zig-linux-${zigArch}-0.13.0.tar.xz | tar -xJ --strip-components=1 -C vendors/zig zig-linux-${zigArch}-0.13.0/zig zig-linux-${zigArch}-0.13.0/lib zig-linux-${zigArch}-0.13.0/doc`;
-	}
-}
 
 async function vendorBsdiff() {
 	const BSDIFF_VERSION = "0.1.20";
@@ -2065,60 +2045,17 @@ async function buildNative() {
 }
 
 async function buildLauncher() {
-	console.log(`Building launcher for ${OS} ${ARCH}...`);
+	console.log(`Building launcher for ${OS} ${ARCH} with Cargo...`);
 
-	let zigArgs: string[] = [];
-
-	if (OS === "win") {
-		// Windows always x64 for now
-		zigArgs = ["-Dtarget=x86_64-windows", "-Dcpu=baseline"];
-	} else if (OS === "linux") {
-		if (ARCH === "arm64") {
-			zigArgs = ["-Dtarget=aarch64-linux-gnu"];
-		} else {
-			zigArgs = ["-Dtarget=x86_64-linux-gnu"];
-		}
-	} else if (OS === "macos") {
-		if (ARCH === "arm64") {
-			zigArgs = ["-Dtarget=aarch64-macos"];
-		} else {
-			zigArgs = ["-Dtarget=x86_64-macos"];
-		}
-	}
-
-	if (CHANNEL === "debug") {
-		await $`cd src/launcher && ../../vendors/zig/zig build ${zigArgs}`;
-	} else if (CHANNEL === "release") {
-		await $`cd src/launcher && ../../vendors/zig/zig build -Doptimize=ReleaseSmall ${zigArgs}`;
-	}
+	const cargoArgs = CHANNEL === "release" ? ["--release"] : [];
+	await $`cd src/launcher && cargo build ${cargoArgs}`;
 }
 
 async function buildCore() {
-	console.log(`Building ElectrobunCore for ${OS} ${ARCH}...`);
+	console.log(`Building ElectrobunCore for ${OS} ${ARCH} with Cargo...`);
 
-	let zigArgs: string[] = [];
-
-	if (OS === "win") {
-		zigArgs = ["-Dtarget=x86_64-windows", "-Dcpu=baseline"];
-	} else if (OS === "linux") {
-		if (ARCH === "arm64") {
-			zigArgs = ["-Dtarget=aarch64-linux-gnu"];
-		} else {
-			zigArgs = ["-Dtarget=x86_64-linux-gnu"];
-		}
-	} else if (OS === "macos") {
-		if (ARCH === "arm64") {
-			zigArgs = ["-Dtarget=aarch64-macos"];
-		} else {
-			zigArgs = ["-Dtarget=x86_64-macos"];
-		}
-	}
-
-	if (CHANNEL === "debug") {
-		await $`cd src/core && ../../vendors/zig/zig build ${zigArgs}`;
-	} else if (CHANNEL === "release") {
-		await $`cd src/core && ../../vendors/zig/zig build -Doptimize=ReleaseSmall ${zigArgs}`;
-	}
+	const cargoArgs = CHANNEL === "release" ? ["--release"] : [];
+	await $`cd src/core && cargo build ${cargoArgs}`;
 }
 
 async function buildMainJs() {
@@ -2149,13 +2086,6 @@ async function buildSelfExtractor() {
 	const targetArg = OS === "win" ? ["--target", "x86_64-pc-windows-msvc"] : [];
 
 	await $`cd src/extractor && cargo build ${cargoArgs} ${targetArg}`;
-
-	// Copy the built binary to the expected location
-	const binExt = OS === "win" ? ".exe" : "";
-	const sourceDir = CHANNEL === "release" ? "release" : "debug";
-	const targetDir = "zig-out/bin"; // Keep compatibility with existing paths
-	await $`mkdir -p src/extractor/${targetDir}`;
-	await $`cp src/extractor/target/${sourceDir}/extractor${binExt} src/extractor/${targetDir}/extractor${binExt}`;
 }
 
 async function buildCli() {

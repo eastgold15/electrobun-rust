@@ -40,6 +40,9 @@ pub enum ElectrobunError {
     
     #[error("FFI error: {0}")]
     FfiError(String),
+
+    #[error("Operation failed: {0}")]
+    OperationFailed(String),
 }
 
 impl From<std::io::Error> for ElectrobunError {

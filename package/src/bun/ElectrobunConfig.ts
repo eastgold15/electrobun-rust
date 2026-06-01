@@ -136,11 +136,9 @@ export interface ElectrobunConfig {
 	build?: {
 		/**
 		 * Main process implementation to build and package.
-		 * - "bun": bundle and run the Bun main process entrypoint
-		 * - "zig": compile and run the Zig main process entrypoint
 		 * @default "bun"
 		 */
-		mainProcess?: "bun" | "zig";
+		mainProcess?: "bun";
 
 		/**
 		 * Bun process build configuration.
@@ -155,17 +153,6 @@ export interface ElectrobunConfig {
 			entrypoint?: string;
 		} & BunBuildOptions;
 
-		/**
-		 * Zig main process build configuration.
-		 * Used when `build.mainProcess` is set to `"zig"`.
-		 */
-		zig?: {
-			/**
-			 * Entry point for the main Zig process
-			 * @default "src/zig/main.zig"
-			 */
-			entrypoint?: string;
-		};
 
 		/**
 		 * Browser view build configurations.

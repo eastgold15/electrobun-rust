@@ -56,6 +56,12 @@ global-hotkey = "0.8.0"
 # Open file/URL in system handler
 open = "5.1"
 
+# PNG encoding/decoding for clipboard images
+png = "0.18.1"
+
+# Move files to trash
+trash = "5.1"
+
 # WGPU (GPU compute/rendering)
 wgpu = "29.0.3"
 

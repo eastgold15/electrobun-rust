@@ -170,6 +170,16 @@ pub struct WebviewState {
     pub visible: bool,
     pub renderer: WebviewRendererKind,
     pub secret_key: Vec<u8>,
+    pub html_content: Option<String>,
+    pub passthrough: bool,
+    pub navigation_rules: Option<String>,
+    pub preload_script: String,
+    pub devtools_open: bool,
+    pub zoom: f64,
+    pub can_go_back: bool,
+    pub can_go_forward: bool,
+    pub navigation_history: Vec<String>,
+    pub navigation_position: usize,
 }
 
 /// WGPU view options
@@ -232,6 +242,10 @@ pub struct TrayState {
     pub title: String,
     pub image: String,
     pub visible: bool,
+    pub is_template: bool,
+    pub width: u32,
+    pub height: u32,
+    pub menu_config: Option<String>,
     #[allow(dead_code)]
     pub handler: Option<Box<dyn Fn(u32, &str) + Send + Sync>>,
 }

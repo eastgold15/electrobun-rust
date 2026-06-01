@@ -160,40 +160,9 @@ fn is_dev_build(exe_dir: &str) -> bool {
     false
 }
 
-/// 主进程类型
-// Zig: const MainProcess = enum { bun, zig };
-// Rust: enum 几乎一样
-#[derive(Debug, Clone, Copy)]
-enum MainProcess {
-    Bun,
-    Zig,
-}
-
-/// 检测主进程类型
-fn detect_main_process(exe_dir: &str) -> MainProcess {
-    let build_path = PathBuf::from(exe_dir).join("..").join("Resources").join("build.json");
-
-    let content = match fs::read_to_string(&build_path) {
-        Ok(c) => c,
-        Err(_) => return MainProcess::Bun,  // Zig: catch return .bun
-    };
-
-    let parsed: HashMap<String, serde_json::Value> = match serde_json::from_str(&content) {
-        Ok(p) => p,
-        Err(_) => return MainProcess::Bun,
-    };
-
-    // Zig: if (parsed.value.object.get("mainProcess")) |value| { ... }
-    // Rust: if let Some(value) = parsed.get("mainProcess") { ... }
-    if let Some(value) = parsed.get("mainProcess") {
-        if let Some(s) = value.as_str() {
-            if s == "zig" {
-                return MainProcess::Zig;
-            }
-        }
-    }
-
-    MainProcess::Bun
+/// 检测主进程类型 — 总是 Bun
+fn detect_main_process() -> &'static str {
+    "bun"
 }
 
 
@@ -302,24 +271,15 @@ fn main() {
     // Linux 特殊处理：CEF 库路径
     #[cfg(target_os = "linux")]
     {
-        use std::path::Path;
-
-        // Zig: 检查 libcef.so 和 libvk_swiftshader.so 是否存在
-        let cef_exists = Path::new(exe_dir).join("libcef.so").exists();
-        let swiftshader_exists = Path::new(exe_dir).join("libvk_swiftshader.so").exists();
-
-        // Zig: 设置 LD_LIBRARY_PATH
-        if let Ok(old_val) = env::var("LD_LIBRARY_PATH") {
-            cmd.env("LD_LIBRARY_PATH", format!("{}:{}", exe_dir_str, old_val));
-        } else {
-            cmd.env("LD_LIBRARY_PATH", exe_dir_str);
-        }
-
-        // Zig: 如果 CEF 库存在，设置 LD_PRELOAD
-        if cef_exists || swiftshader_exists {
-            let mut preload_libs = Vec::new();
-            if cef_exists { preload_libs.push("./libcef.so"); }
-            if swiftshader_exists { preload_libs.push("./libvk_swiftshader.so"); }
+    // ═══════════════════════════════════════════════════════
+    // 确定启动命令 — 始终使用 Bun 主进程
+    // ═══════════════════════════════════════════════════════
+    let bun_name = format!("bun{}", std::env::consts::EXE_SUFFIX);
+    let bun_path = PathBuf::from(exe_dir).join(&bun_name);
+    let resources_path = PathBuf::from(exe_dir)
+        .join("..").join("Resources").join("main.js");
+    let program = bun_path.to_str().unwrap().to_string();
+    let args = vec![resources_path.to_str().unwrap().to_string()];
             cmd.env("LD_PRELOAD", preload_libs.join(":"));
             println!("Setting LD_PRELOAD: {}", preload_libs.join(":"));
         }
