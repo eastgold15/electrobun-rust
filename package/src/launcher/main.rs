@@ -196,7 +196,7 @@ fn main() {
     // 检测主进程类型
     // ═══════════════════════════════════════════════════════
 
-    let main_process = detect_main_process(exe_dir_str);
+    let main_process = detect_main_process();
     // ═══════════════════════════════════════════════════════
     // 根据平台和主进程类型，确定启动命令
     // ═══════════════════════════════════════════════════════
@@ -207,8 +207,11 @@ fn main() {
         let resources_path = PathBuf::from(exe_dir)
             .join("..").join("Resources").join("main.js");
         (bun_path.to_str().unwrap().to_string(), vec![resources_path.to_str().unwrap().to_string()])
+    },
+    _ => {
+        eprintln!("未知的主进程类型: {}", main_process);
+        std::process::exit(1);
     }
-
 };
 
     // ═══════════════════════════════════════════════════════
@@ -220,23 +223,13 @@ fn main() {
     cmd.current_dir(exe_dir);
 
     // Linux 特殊处理：CEF 库路径
-    #[cfg(target_os = "linux")]
-    {
-    // ═══════════════════════════════════════════════════════
-    // 确定启动命令 — 始终使用 Bun 主进程
-    // ═══════════════════════════════════════════════════════
-    let bun_name = format!("bun{}", std::env::consts::EXE_SUFFIX);
-    let bun_path = PathBuf::from(exe_dir).join(&bun_name);
-    let resources_path = PathBuf::from(exe_dir)
-        .join("..").join("Resources").join("main.js");
-    let program = bun_path.to_str().unwrap().to_string();
-    let args = vec![resources_path.to_str().unwrap().to_string()];
-            cmd.env("LD_PRELOAD", preload_libs.join(":"));
-            println!("Setting LD_PRELOAD: {}", preload_libs.join(":"));
-        }
+	#[cfg(target_os = "linux")]
+	{
+		cmd.env("LD_PRELOAD", preload_libs.join(":"));
+		println!("Setting LD_PRELOAD: {}", preload_libs.join(":"));
+	}
 
-        cmd.env("ICU_DATA", exe_dir_str);
-    }
+	cmd.env("ICU_DATA", exe_dir_str);
 
     // Windows 特殊处理
     #[cfg(target_os = "windows")]

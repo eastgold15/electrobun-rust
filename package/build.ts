@@ -582,13 +582,15 @@ async function copyToDist() {
 	const sourceDir = CHANNEL === "release" ? "release" : "debug";
 	// Rust launcher for all platforms
 	await $`cp src/launcher/target/${sourceDir}/launcher${binExt} dist/launcher${binExt}`;
-	await $`cp src/extractor/target/${sourceDir}/extractor${binExt} dist/extractor${binExt}`;
+
+	const extractorTarget = OS === "win" ? `x86_64-pc-windows-msvc/${sourceDir}` : sourceDir;
+	await $`cp src/extractor/target/${extractorTarget}/extractor${binExt} dist/extractor${binExt}`;
 	const coreLibName =
 		OS === "win"
-			? "ElectrobunCore.dll"
+			? "electrobun_core.dll"
 			: OS === "macos"
-				? "libElectrobunCore.dylib"
-				: "libElectrobunCore.so";
+				? "libelectrobun_core.dylib"
+				: "libelectrobun_core.so";
 	const coreLibSourceDir = ""; // cargo outputs directly in target/release/
 	await $`cp ${join("src", "core", "target", sourceDir, coreLibSourceDir, coreLibName)} ${join("dist", coreLibName)}`;
 	// Copy bsdiff, bspatch, rust-zstd from Rust build
