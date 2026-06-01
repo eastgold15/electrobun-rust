@@ -80,7 +80,7 @@ function validateDownload(filePath: string, type: string): void {
 		unlinkSync(filePath);
 		throw new Error(
 			`Download failed: ${filePath} is only ${stats.size} bytes (expected > ${minSize} bytes). ` +
-				`Please try again in a minute.`,
+			`Please try again in a minute.`,
 		);
 	}
 }
@@ -254,10 +254,10 @@ async function runMsvcCommand(command: string) {
 
 	try {
 		const result = await $`cmd /c "${tempBat}"`;
-		await $`rm "${tempBat}"`.catch(() => {});
+		await $`rm "${tempBat}"`.catch(() => { });
 		return result;
 	} catch (error) {
-		await $`rm "${tempBat}"`.catch(() => {});
+		await $`rm "${tempBat}"`.catch(() => { });
 		throw error;
 	}
 }
@@ -556,6 +556,7 @@ async function copyApiFiles() {
 		await $`cp -R src/browser dist/api/`;
 		await $`cp -R src/shared dist/api/`;
 	}
+}
 
 
 async function copyToDist() {
@@ -571,7 +572,7 @@ async function copyToDist() {
 			: OS === "macos"
 				? "libElectrobunCore.dylib"
 				: "libElectrobunCore.so";
-const coreLibSourceDir = ""; // cargo outputs directly in target/release/
+	const coreLibSourceDir = ""; // cargo outputs directly in target/release/
 	await $`cp ${join("src", "core", "target", sourceDir, coreLibSourceDir, coreLibName)} ${join("dist", coreLibName)}`;
 	// Copy bsdiff, bspatch, zig-zstd from Rust build
 	const toolSource = CHANNEL === "release" ? "release" : "debug";
@@ -637,13 +638,13 @@ const coreLibSourceDir = ""; // cargo outputs directly in target/release/
 
 		// Copy icudtl.dat directly to cef/ root (same folder as DLLs) - this is required for CEF initialization
 		await $`powershell -command "if (Test-Path 'vendors/cef/Resources/icudtl.dat') { Copy-Item 'vendors/cef/Resources/icudtl.dat' 'dist/cef/' -Force }"`.catch(
-			() => {},
+			() => { },
 		);
 
 		// CEF locales to cef/Resources/locales subdirectory
 		await $`powershell -command "if (-not (Test-Path 'dist/cef/Resources')) { New-Item -ItemType Directory -Path 'dist/cef/Resources' -Force | Out-Null }"`;
 		await $`powershell -command "if (Test-Path 'vendors/cef/Resources/locales') { Copy-Item 'vendors/cef/Resources/locales' 'dist/cef/Resources/' -Recurse -Force }"`.catch(
-			() => {},
+			() => { },
 		);
 
 		// Copy CEF helper process
@@ -777,7 +778,7 @@ function getArch() {
 }
 
 async function createDistFolder() {
-	await $`rm -r dist`.catch(() => {});
+	await $`rm -r dist`.catch(() => { });
 	await $`mkdir -p dist/api`;
 	await $`mkdir -p dist/api/bun`;
 	await $`mkdir -p dist/api/browser`;
@@ -877,6 +878,124 @@ async function vendorBun() {
 	// Write version stamp so future builds can detect staleness
 	writeFileSync(join("vendors", "bun", ".bun-version"), BUN_VERSION);
 }
+async function vendorWGPU() {
+	const WGPU_VERSION = "0.2.3";
+	const wgpuBaseDir = join(process.cwd(), "vendors", "wgpu");
+	const wgpuDir = join(wgpuBaseDir, `${OS}-${ARCH}`);
+	const wgpuVersionFile = join(wgpuBaseDir, ".wgpu-version");
+	const currentVersion = existsSync(wgpuVersionFile)
+		? readFileSync(wgpuVersionFile, "utf8").trim()
+		: null;
+
+	const libExt = OS === "win" ? ".dll" : OS === "macos" ? ".dylib" : ".so";
+	const libCandidates =
+		OS === "win"
+			? [
+				join(wgpuDir, "bin", "webgpu_dawn.dll"),
+				join(wgpuDir, "bin", "libwebgpu_dawn.dll"),
+				join(wgpuDir, "lib", "webgpu_dawn.dll"),
+				join(wgpuDir, "lib", "libwebgpu_dawn.dll"),
+			]
+			: [
+				join(wgpuDir, "lib", `libwebgpu_dawn${libExt}`),
+				join(wgpuDir, "lib", `libwebgpu_dawn_shared${libExt}`),
+			];
+
+	if (libCandidates.some((p) => existsSync(p)) && currentVersion === WGPU_VERSION) {
+		return;
+	}
+
+	if (libCandidates.some((p) => existsSync(p)) && !currentVersion) {
+		writeFileSync(wgpuVersionFile, WGPU_VERSION);
+		return;
+	}
+
+	if (currentVersion && currentVersion !== WGPU_VERSION && existsSync(wgpuDir)) {
+		await $`rm -rf "${wgpuDir}"`;
+	}
+
+	await pauseForGitHub();
+	console.log("Downloading electrobun-dawn binaries...");
+
+	const platformMap: Record<string, string> = {
+		macos: "darwin",
+		win: "win32",
+		linux: "linux",
+	};
+	const platformName = platformMap[OS];
+	const archName = ARCH;
+
+	const tarballUrl = `https://github.com/blackboardsh/electrobun-dawn/releases/download/v${WGPU_VERSION}/electro
+     bun-dawn-${platformName}-${archName}.tar.gz`;
+	const tempTarball = join("vendors", `electrobun-dawn-temp.tar.gz`);
+	const tempExtractDir = join("vendors", `electrobun-dawn-extract-${Date.now()}`);
+
+	try {
+		await $`mkdir -p "${wgpuBaseDir}"`;
+		await $`rm -f "${tempTarball}"`;
+
+		const githubToken =
+			process.env["GITHUB_TOKEN"] ??
+			process.env["GH_TOKEN"] ??
+			process.env["GITHUB_ACCESS_TOKEN"];
+		if (githubToken) {
+			await $`curl -fL -H "Authorization: Bearer ${githubToken}" -H "Accept: application/octet-stream"
+     "${tarballUrl}" -o "${tempTarball}"`;
+		} else {
+			await $`curl -fL -H "Accept: application/octet-stream" "${tarballUrl}" -o "${tempTarball}"`;
+		}
+
+		validateDownload(tempTarball, "wgpu");
+
+		await $`rm -rf "${tempExtractDir}"`;
+		await $`mkdir -p "${tempExtractDir}"`;
+		await $`tar -xzf "${tempTarball}" -C "${tempExtractDir}"`;
+
+		const extracted = readdirSync(tempExtractDir);
+		if (extracted.length === 1) {
+			const single = join(tempExtractDir, extracted[0]!);
+			if (existsSync(wgpuDir)) {
+				await $`rm -rf "${wgpuDir}"`;
+			}
+			await $`mv "${single}" "${wgpuDir}"`;
+		} else {
+			if (existsSync(wgpuDir)) {
+				await $`rm -rf "${wgpuDir}"`;
+			}
+			await $`mkdir -p "${wgpuDir}"`;
+			for (const item of extracted) {
+				await $`mv "${join(tempExtractDir, item)}" "${wgpuDir}/"`;
+			}
+		}
+
+		await $`rm -rf "${tempExtractDir}"`;
+		await $`rm -f "${tempTarball}"`;
+
+		if (!libCandidates.some((p) => existsSync(p))) {
+			throw new Error(`WGPU library not found after extraction: ${wgpuDir}`);
+		}
+
+		writeFileSync(wgpuVersionFile, WGPU_VERSION);
+
+		// Regenerate Bun FFI bindings when WGPU version changes
+		if (!existsSync(join(process.cwd(), "src", "bun", "webGPU.ts"))) {
+			await $`node scripts/gen-webgpu-ffi.mjs`;
+		} else if (currentVersion !== WGPU_VERSION) {
+			await $`node scripts/gen-webgpu-ffi.mjs`;
+		}
+
+		console.log("✓ electrobun-dawn binaries downloaded successfully");
+	} catch (error: unknown) {
+		console.error(
+			"Failed to download electrobun-dawn binaries:",
+			error instanceof Error ? error.message : error,
+		);
+		throw new Error(
+			`Failed to download electrobun-dawn binaries. Please try again in a minute.`,
+		);
+	}
+}
+
 
 
 
@@ -1594,8 +1713,9 @@ async function buildNative() {
 			// Link with WebKitGTK, AppIndicator, and optionally CEF libraries using weak linking
 			await $`mkdir -p src/native/build`;
 
+			// todo
 			// Build both GTK-only and CEF versions for Linux
-			const asarLib = join(process.cwd(), "src", "tools", "target", sourceDir, "libasar.so");
+			const asarLib = join(process.cwd(), "src", "tools", "target", "libasar.so");
 
 			console.log("Building GTK-only version (libNativeWrapper.so)");
 			const linkCmd = [
