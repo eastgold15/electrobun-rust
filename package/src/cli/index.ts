@@ -172,7 +172,7 @@ function getPlatformPaths(
 		BSPATCH: join(platformDistDir, "bspatch") + binExt,
 		EXTRACTOR: join(platformDistDir, "extractor") + binExt,
 		BSDIFF: join(platformDistDir, "bsdiff") + binExt,
-		ZSTD: join(platformDistDir, "zig-zstd") + binExt,
+		ZSTD: join(platformDistDir, "rust-zstd") + binExt,
 		CEF_FRAMEWORK_MACOS: join(
 			platformDistDir,
 			"cef",
@@ -3245,9 +3245,9 @@ Categories=Utility;Application;
 				dereference: true,
 			});
 
-			// Copy zig-zstd for updater tarball decompression
+			// Copy rust-zstd for updater tarball decompression
 			const zstdSource = targetPaths.ZSTD;
-			const zstdDestination = join(appBundleMacOSPath, "zig-zstd") + targetBinExt;
+			const zstdDestination = join(appBundleMacOSPath, "rust-zstd") + targetBinExt;
 			cpSync(zstdSource, zstdDestination, {
 				recursive: true,
 				dereference: true,
@@ -3263,28 +3263,28 @@ Categories=Utility;Application;
 				const x64DistPath = join(
 					ELECTROBUN_DEP_PATH,
 					"dist-win-x64",
-					"zig-asar",
+					"rust-asar",
 					"x64",
 					"libasar.dll",
 				);
 				const x64VendorPath = join(
 					ELECTROBUN_DEP_PATH,
 					"vendors",
-					"zig-asar",
+					"rust-asar",
 					"x64",
 					"libasar.dll",
 				);
 				const arm64DistPath = join(
 					ELECTROBUN_DEP_PATH,
 					"dist-win-x64",
-					"zig-asar",
+					"rust-asar",
 					"arm64",
 					"libasar.dll",
 				);
 				const arm64VendorPath = join(
 					ELECTROBUN_DEP_PATH,
 					"vendors",
-					"zig-asar",
+					"rust-asar",
 					"arm64",
 					"libasar.dll",
 				);
@@ -3617,8 +3617,8 @@ Categories=Utility;Application;
 				"app.asar.unpacked",
 			);
 
-			// Get zig-asar CLI path from platform dist directory
-			const zigAsarCli = join(targetPaths.BSPATCH).replace("bspatch", "zig-asar");
+			// Get rust-asar CLI path from platform dist directory
+			const rustAsarCli = join(targetPaths.BSPATCH).replace("bspatch", "rust-asar");
 
 			const appDirPath = appBundleAppCodePath;
 
@@ -3630,14 +3630,14 @@ Categories=Utility;Application;
 				const defaultUnpackPatterns = ["*.node", "*.dll", "*.dylib", "*.so"];
 				const unpackPatterns = config.build.asarUnpack || defaultUnpackPatterns;
 
-				// Check if zig-asar CLI exists
-				if (!existsSync(zigAsarCli)) {
-					console.error(`zig-asar CLI not found at: ${zigAsarCli}`);
+				// Check if rust-asar CLI exists
+				if (!existsSync(rustAsarCli)) {
+					console.error(`rust-asar CLI not found at: ${rustAsarCli}`);
 					console.error("Make sure to run 'bun run build' first");
-					throw new Error("Build failed: zig-asar CLI not found");
+					throw new Error("Build failed: rust-asar CLI not found");
 				}
 
-				// Build zig-asar command arguments
+				// Build rust-asar command arguments
 				// Pack the entire app directory
 				const asarArgs = [
 					"pack",
@@ -3651,8 +3651,8 @@ Categories=Utility;Application;
 					asarArgs.push("--unpack", pattern);
 				}
 
-				// Run zig-asar pack
-				let asarResult = Bun.spawnSync([zigAsarCli, ...asarArgs], {
+				// Run rust-asar pack
+				let asarResult = Bun.spawnSync([rustAsarCli, ...asarArgs], {
 					stdio: ["ignore", "inherit", "inherit"],
 					cwd: projectRoot,
 				});
@@ -3670,7 +3670,7 @@ Categories=Utility;Application;
 							new TextDecoder().decode(asarResult.stderr as Uint8Array),
 						);
 					}
-					console.error("Command:", zigAsarCli, ...asarArgs);
+					console.error("Command:", rustAsarCli, ...asarArgs);
 					throw new Error("Build failed: ASAR packing failed");
 				}
 
@@ -3821,7 +3821,7 @@ Categories=Utility;Application;
 		// The tar will be created in the common code path below
 
 		if (buildEnvironment !== "dev") {
-			// zig-zstd CLI (native zstd)
+			// rust-zstd CLI (native zstd)
 			// tar https://github.com/isaacs/node-tar
 
 			// steps:
@@ -3939,7 +3939,7 @@ Categories=Utility;Application;
 						const zstdPath = targetPaths.ZSTD;
 						if (!existsSync(zstdPath)) {
 							console.log(
-								`zig-zstd not found at ${zstdPath}, skipping patch generation`,
+								`rust-zstd not found at ${zstdPath}, skipping patch generation`,
 							);
 							canGeneratePatch = false;
 						}
@@ -4044,7 +4044,7 @@ Categories=Utility;Application;
 				if (tarball.size > 0) {
 					const zstdPath = targetPaths.ZSTD;
 					if (!existsSync(zstdPath)) {
-						throw new Error(`zig-zstd not found at ${zstdPath}`);
+						throw new Error(`rust-zstd not found at ${zstdPath}`);
 					}
 					const compressResult = Bun.spawnSync(
 						[
@@ -4065,7 +4065,7 @@ Categories=Utility;Application;
 					);
 					if (!compressResult.success) {
 						throw new Error(
-							`zig-zstd compress failed with exit code ${compressResult.exitCode}`,
+							`rust-zstd compress failed with exit code ${compressResult.exitCode}`,
 						);
 					}
 				}

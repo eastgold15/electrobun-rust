@@ -415,8 +415,8 @@ typedef double CGFloat;
 // Platform-specific aliases
 typedef void (*HandlePostMessageWin)(uint32_t webviewId, const char* message);
 typedef void (*callAsyncJavascriptCompletionHandler)(const char *messageId, uint32_t webviewId, uint32_t hostWebviewId, const char *responseJSON);
-typedef SnapshotCallback zigSnapshotCallback;
-typedef StatusItemHandler ZigStatusItemHandler;
+typedef SnapshotCallback ebSnapshotCallback;
+typedef StatusItemHandler EbStatusItemHandler;
 
 // Global map to store container views by window handle
 static std::map<HWND, std::unique_ptr<ContainerView>> g_containerViews;
@@ -2435,7 +2435,7 @@ bool isCEFAvailable() {
 
 class StatusItemTarget {
 public:
-    ZigStatusItemHandler zigHandler;
+    EbStatusItemHandler zigHandler;
     uint32_t trayId;
     
     StatusItemTarget() : zigHandler(nullptr), trayId(0) {}
@@ -4651,7 +4651,7 @@ public:
 
 class MyScriptMessageHandlerWithReply {
 public:
-    HandlePostMessageWithReply zigCallback;
+    HandlePostMessageWithReply ebCallback;
     uint32_t webviewId;
 };
 
@@ -5068,7 +5068,7 @@ public:
     NOTIFYICONDATA nid;
     HWND hwnd;
     uint32_t trayId;
-    ZigStatusItemHandler handler;
+    EbStatusItemHandler handler;
     HMENU contextMenu;
     std::string title;
     std::string imagePath;
@@ -7325,7 +7325,7 @@ ELECTROBUN_EXPORT MyScriptMessageHandlerWithReply* addScriptMessageHandlerWithRe
                                                               HandlePostMessageWithReply callback) {
     // Stub implementation
     MyScriptMessageHandlerWithReply* handler = new MyScriptMessageHandlerWithReply();
-    handler->zigCallback = callback;
+    handler->ebCallback = callback;
     handler->webviewId = webviewId;
     return handler;
 }
@@ -9300,12 +9300,12 @@ ELECTROBUN_EXPORT NSRect createNSRectWrapper(double x, double y, double width, d
 
 ELECTROBUN_EXPORT NSWindow* createNSWindowWithFrameAndStyle(uint32_t windowId,
                                          createNSWindowWithFrameAndStyleParams config,
-                                         WindowCloseHandler zigCloseHandler,
-                                         WindowMoveHandler zigMoveHandler,
-                                         WindowResizeHandler zigResizeHandler,
-                                         WindowFocusHandler zigFocusHandler,
-                                         WindowBlurHandler zigBlurHandler,
-                                         WindowKeyHandler zigKeyHandler) {
+                                         WindowCloseHandler ebCloseHandler,
+                                         WindowMoveHandler ebMoveHandler,
+                                         WindowResizeHandler ebResizeHandler,
+                                         WindowFocusHandler ebFocusHandler,
+                                         WindowBlurHandler ebBlurHandler,
+                                         WindowKeyHandler ebKeyHandler) {
     // Stub implementation
     return new NSWindow();
 }
@@ -9326,12 +9326,12 @@ ELECTROBUN_EXPORT HWND createWindowWithFrameAndStyleFromWorker(
     bool transparent,
     double trafficLightOffsetX,
     double trafficLightOffsetY,
-    WindowCloseHandler zigCloseHandler,
-    WindowMoveHandler zigMoveHandler,
-    WindowResizeHandler zigResizeHandler,
-    WindowFocusHandler zigFocusHandler,
-    WindowBlurHandler zigBlurHandler,
-    WindowKeyHandler zigKeyHandler) {
+    WindowCloseHandler ebCloseHandler,
+    WindowMoveHandler ebMoveHandler,
+    WindowResizeHandler ebResizeHandler,
+    WindowFocusHandler ebFocusHandler,
+    WindowBlurHandler ebBlurHandler,
+    WindowKeyHandler ebKeyHandler) {
 
     (void)trafficLightOffsetX;
     (void)trafficLightOffsetY;
@@ -9355,12 +9355,12 @@ ELECTROBUN_EXPORT HWND createWindowWithFrameAndStyleFromWorker(
         if (!data) return NULL;
 
         data->windowId = windowId;
-        data->closeHandler = zigCloseHandler;
-        data->moveHandler = zigMoveHandler;
-        data->resizeHandler = zigResizeHandler;
-        data->focusHandler = zigFocusHandler;
-        data->blurHandler = zigBlurHandler;
-        data->keyHandler = zigKeyHandler;
+        data->closeHandler = ebCloseHandler;
+        data->moveHandler = ebMoveHandler;
+        data->resizeHandler = ebResizeHandler;
+        data->focusHandler = ebFocusHandler;
+        data->blurHandler = ebBlurHandler;
+        data->keyHandler = ebKeyHandler;
 
         // Map style mask to Windows style
         DWORD windowStyle = WS_OVERLAPPEDWINDOW; // Default
@@ -10673,14 +10673,14 @@ LRESULT CALLBACK TrayWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 ELECTROBUN_EXPORT NSStatusItem* createTray(uint32_t trayId, const char *title, const char *pathToImage, bool isTemplate,
-                        uint32_t width, uint32_t height, ZigStatusItemHandler zigTrayItemHandler) {
+                        uint32_t width, uint32_t height, EbStatusItemHandler ebTrayItemHandler) {
     
     return MainThreadDispatcher::dispatch_sync([=]() -> NSStatusItem* {
         // ::log("Creating system tray icon");
         
         NSStatusItem* statusItem = new NSStatusItem();
         statusItem->trayId = trayId;
-        statusItem->handler = zigTrayItemHandler;
+        statusItem->handler = ebTrayItemHandler;
         
         if (title) {
             statusItem->title = std::string(title);
@@ -10968,7 +10968,7 @@ ELECTROBUN_EXPORT const char* getTrayBounds(NSStatusItem *statusItem) {
     return _strdup("{\"x\":0,\"y\":0,\"width\":0,\"height\":0}");
 }
 
-ELECTROBUN_EXPORT void setApplicationMenu(const char *jsonString, ZigStatusItemHandler zigTrayItemHandler) {
+ELECTROBUN_EXPORT void setApplicationMenu(const char *jsonString, EbStatusItemHandler ebTrayItemHandler) {
     if (!jsonString) {
         ::log("ERROR: NULL JSON string passed to setApplicationMenu");
         return;
@@ -10987,7 +10987,7 @@ ELECTROBUN_EXPORT void setApplicationMenu(const char *jsonString, ZigStatusItemH
             
             // Create target for handling menu actions
             g_appMenuTarget = std::make_unique<StatusItemTarget>();
-            g_appMenuTarget->zigHandler = zigTrayItemHandler;
+            g_appMenuTarget->zigHandler = ebTrayItemHandler;
             g_appMenuTarget->trayId = 0;
             
             // Clean up existing application menu and accelerators
@@ -11040,7 +11040,7 @@ ELECTROBUN_EXPORT void setApplicationMenu(const char *jsonString, ZigStatusItemH
 }
 
 
-ELECTROBUN_EXPORT void showContextMenu(const char *jsonString, ZigStatusItemHandler contextMenuHandler) {
+ELECTROBUN_EXPORT void showContextMenu(const char *jsonString, EbStatusItemHandler contextMenuHandler) {
     if (!jsonString) {
         ::log("ERROR: NULL JSON string passed to showContextMenu");
         return;
@@ -11105,7 +11105,7 @@ ELECTROBUN_EXPORT void showContextMenu(const char *jsonString, ZigStatusItemHand
 
 ELECTROBUN_EXPORT void getWebviewSnapshot(uint32_t hostId, uint32_t webviewId,
                        WKWebView *webView,
-                       zigSnapshotCallback callback) {
+                       ebSnapshotCallback callback) {
     // Stub implementation
     if (callback) {
         static const char* emptyDataUrl = "data:image/png;base64,";

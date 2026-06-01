@@ -681,13 +681,13 @@ const Updater = {
 
 				emitStatus("decompressing", "Decompressing update bundle...");
 				const bunBinDir = dirname(process.execPath);
-				const zstdBinName = currentOS === "win" ? "zig-zstd.exe" : "zig-zstd";
+				const zstdBinName = currentOS === "win" ? "rust-zstd.exe" : "rust-zstd";
 				const zstdPath = join(bunBinDir, zstdBinName);
 
 				if (!statSync(zstdPath, { throwIfNoEntry: false })) {
-					updateInfo.error = `zig-zstd not found: ${zstdPath}`;
+					updateInfo.error = `rust-zstd not found: ${zstdPath}`;
 					emitStatus("error", updateInfo.error, { zstdPath });
-					console.error("zig-zstd not found:", zstdPath);
+					console.error("rust-zstd not found:", zstdPath);
 				} else {
 					const decompressResult = Bun.spawnSync(
 						[
@@ -706,12 +706,12 @@ const Updater = {
 						},
 					);
 					if (!decompressResult.success) {
-						updateInfo.error = `zig-zstd failed with exit code ${decompressResult.exitCode}`;
+						updateInfo.error = `rust-zstd failed with exit code ${decompressResult.exitCode}`;
 						emitStatus("error", updateInfo.error, {
 							zstdPath,
 							exitCode: decompressResult.exitCode,
 						});
-						console.error("zig-zstd failed", {
+						console.error("rust-zstd failed", {
 							exitCode: decompressResult.exitCode,
 							zstdPath,
 						});

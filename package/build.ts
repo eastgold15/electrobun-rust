@@ -574,21 +574,21 @@ async function copyToDist() {
 				: "libElectrobunCore.so";
 	const coreLibSourceDir = ""; // cargo outputs directly in target/release/
 	await $`cp ${join("src", "core", "target", sourceDir, coreLibSourceDir, coreLibName)} ${join("dist", coreLibName)}`;
-	// Copy bsdiff, bspatch, zig-zstd from Rust build
+	// Copy bsdiff, bspatch, rust-zstd from Rust build
 	const toolSource = CHANNEL === "release" ? "release" : "debug";
 	await $`cp src/tools/target/${toolSource}/bsdiff${binExt} dist/bsdiff${binExt}`;
 	await $`cp src/tools/target/${toolSource}/bspatch${binExt} dist/bspatch${binExt}`;
-	await $`cp src/tools/target/${toolSource}/zig-zstd${binExt} dist/zig-zstd${binExt}`;
+	await $`cp src/tools/target/${toolSource}/rust-zstd${binExt} dist/rust-zstd${binExt}`;
 
 	// Copy Rust-built ASAR CLI and shared library
 	if (OS === "win") {
 		// Windows: single arch (Rust binary is native)
-		await $`cp src/tools/target/${toolSource}/zig-asar${binExt} dist/zig-asar${binExt}`;
+		await $`cp src/tools/target/${toolSource}/rust-asar${binExt} dist/rust-asar${binExt}`;
 		await $`cp src/tools/target/${toolSource}/asar.dll dist/asar.dll`;
 	} else {
 		// Unix: copy CLI and shared library
 		var asarLibName = OS === "macos" ? "libasar.dylib" : "libasar.so";
-		await $`cp src/tools/target/${toolSource}/zig-asar${binExt} dist/zig-asar${binExt}`;
+		await $`cp src/tools/target/${toolSource}/rust-asar${binExt} dist/rust-asar${binExt}`;
 		await $`cp src/tools/target/${toolSource}/${asarLibName} dist/${asarLibName}`;
 	}
 	// Verify critical files were copied

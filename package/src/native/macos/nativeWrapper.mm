@@ -610,8 +610,8 @@ static void applyWindowButtonPosition(NSWindow *window, double x, double y) {
 
 // Window, tray, menu, and snapshot callbacks are defined in shared/callbacks.h
 // Platform-specific aliases
-typedef SnapshotCallback zigSnapshotCallback;
-typedef StatusItemHandler ZigStatusItemHandler;
+typedef SnapshotCallback ebSnapshotCallback;
+typedef StatusItemHandler EbStatusItemHandler;
 static URLOpenHandler g_urlOpenHandler = nullptr;
 // Buffer for URLs received before the handler is registered (cold-launch race).
 // The NSApp delegate fires on the main thread as soon as the event loop starts,
@@ -939,25 +939,25 @@ static NSMutableDictionary<NSNumber *, AbstractView *> *globalAbstractViews = ni
 @end
 
 @interface MyNavigationDelegate : NSObject <WKNavigationDelegate, WKDownloadDelegate>
-    @property (nonatomic, assign) DecideNavigationCallback zigCallback;
-    @property (nonatomic, assign) WebviewEventHandler zigEventHandler;
+    @property (nonatomic, assign) DecideNavigationCallback ebCallback;
+    @property (nonatomic, assign) WebviewEventHandler ebEventHandler;
     @property (nonatomic, assign) uint32_t webviewId;
     @property (nonatomic, strong) NSMutableDictionary<NSValue *, NSString *> *downloadPaths;
     @property (nonatomic, strong) NSMutableSet<WKDownload *> *observedDownloads;
 @end
 
 @interface MyWebViewUIDelegate : NSObject <WKUIDelegate>
-    @property (nonatomic, assign) WebviewEventHandler zigEventHandler;
+    @property (nonatomic, assign) WebviewEventHandler ebEventHandler;
     @property (nonatomic, assign) uint32_t webviewId;
 @end
 
 @interface MyScriptMessageHandler : NSObject <WKScriptMessageHandler>
-    @property (nonatomic, assign) HandlePostMessage zigCallback;
+    @property (nonatomic, assign) HandlePostMessage ebCallback;
     @property (nonatomic, assign) uint32_t webviewId;
 @end
 
 @interface MyScriptMessageHandlerWithReply : NSObject <WKScriptMessageHandlerWithReply>
-    @property (nonatomic, assign) HandlePostMessageWithReply zigCallback;
+    @property (nonatomic, assign) HandlePostMessageWithReply ebCallback;
     @property (nonatomic, assign) uint32_t webviewId;
 @end
 
@@ -1019,7 +1019,7 @@ static NSMutableDictionary<NSNumber *, AbstractView *> *globalAbstractViews = ni
 
 @interface StatusItemTarget : NSObject
     @property (nonatomic, assign) NSStatusItem *statusItem;
-    @property (nonatomic, assign) ZigStatusItemHandler zigHandler;
+    @property (nonatomic, assign) EbStatusItemHandler zigHandler;
     @property (nonatomic, assign) uint32_t trayId;
     - (void)statusItemClicked:(id)sender;
     - (void)menuItemClicked:(id)sender;
@@ -2124,7 +2124,7 @@ static void schedulePendingResizeDrain() {
             NSString *eventData = [NSString stringWithFormat:@"{\"url\":\"%@\",\"isCmdClick\":true,\"modifierFlags\":%lu}",
                                  newURL.absoluteString,
                                  (unsigned long)navigationAction.modifierFlags];
-            self.zigEventHandler(self.webviewId, strdup("new-window-open"), strdup([eventData UTF8String]));
+            self.ebEventHandler(self.webviewId, strdup("new-window-open"), strdup([eventData UTF8String]));
             decisionHandler(WKNavigationActionPolicyCancel);
             return;
         }
@@ -2137,7 +2137,7 @@ static void schedulePendingResizeDrain() {
         NSString *eventData = [NSString stringWithFormat:@"{\"url\":\"%@\",\"allowed\":%@}",
                              newURL.absoluteString,
                              shouldAllow ? @"true" : @"false"];
-        self.zigEventHandler(self.webviewId, strdup("will-navigate"), strdup([eventData UTF8String]));
+        self.ebEventHandler(self.webviewId, strdup("will-navigate"), strdup([eventData UTF8String]));
 
         // Check if this navigation action should trigger a download
         if (navigationAction.shouldPerformDownload) {
@@ -2162,13 +2162,13 @@ static void schedulePendingResizeDrain() {
     - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
         NSString *urlString = webView.URL.absoluteString ?: @"";
         if (urlString.length > 0) {
-            self.zigEventHandler(self.webviewId, strdup("did-navigate"), strdup(urlString.UTF8String));
+            self.ebEventHandler(self.webviewId, strdup("did-navigate"), strdup(urlString.UTF8String));
         }
     }
     - (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
         NSString *urlString = webView.URL.absoluteString ?: @"";
         if (urlString.length > 0) {
-            self.zigEventHandler(self.webviewId, strdup("did-commit-navigation"), strdup(urlString.UTF8String));
+            self.ebEventHandler(self.webviewId, strdup("did-commit-navigation"), strdup(urlString.UTF8String));
         }
     }
 
@@ -2233,12 +2233,12 @@ static void schedulePendingResizeDrain() {
                                    context:NULL];
 
             // Send download-started event
-            if (self.zigEventHandler) {
+            if (self.ebEventHandler) {
                 // Use NSJSONSerialization for proper escaping
                 NSDictionary *eventDict = @{@"filename": suggestedFilename, @"path": destinationPath};
                 NSData *jsonData = [NSJSONSerialization dataWithJSONObject:eventDict options:0 error:nil];
                 NSString *eventData = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-                self.zigEventHandler(self.webviewId, strdup("download-started"), strdup([eventData UTF8String]));
+                self.ebEventHandler(self.webviewId, strdup("download-started"), strdup([eventData UTF8String]));
             }
 
             completionHandler(destinationURL);
@@ -2258,14 +2258,14 @@ static void schedulePendingResizeDrain() {
         }
 
         // Send download-completed event
-        if (self.zigEventHandler) {
+        if (self.ebEventHandler) {
             NSString *path = [self.downloadPaths objectForKey:[NSValue valueWithNonretainedObject:download]];
             NSString *filename = [path lastPathComponent] ?: @"";
             // Use NSJSONSerialization for proper escaping
             NSDictionary *eventDict = @{@"filename": filename, @"path": path ?: @""};
             NSData *jsonData = [NSJSONSerialization dataWithJSONObject:eventDict options:0 error:nil];
             NSString *eventData = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-            self.zigEventHandler(self.webviewId, strdup("download-completed"), strdup([eventData UTF8String]));
+            self.ebEventHandler(self.webviewId, strdup("download-completed"), strdup([eventData UTF8String]));
 
             // Clean up
             [self.downloadPaths removeObjectForKey:[NSValue valueWithNonretainedObject:download]];
@@ -2282,14 +2282,14 @@ static void schedulePendingResizeDrain() {
         }
 
         // Send download-failed event
-        if (self.zigEventHandler) {
+        if (self.ebEventHandler) {
             NSString *path = [self.downloadPaths objectForKey:[NSValue valueWithNonretainedObject:download]];
             NSString *filename = [path lastPathComponent] ?: @"";
             // Use NSJSONSerialization for proper escaping
             NSDictionary *eventDict = @{@"filename": filename, @"path": path ?: @"", @"error": error.localizedDescription};
             NSData *jsonData = [NSJSONSerialization dataWithJSONObject:eventDict options:0 error:nil];
             NSString *eventData = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-            self.zigEventHandler(self.webviewId, strdup("download-failed"), strdup([eventData UTF8String]));
+            self.ebEventHandler(self.webviewId, strdup("download-failed"), strdup([eventData UTF8String]));
 
             // Clean up
             [self.downloadPaths removeObjectForKey:[NSValue valueWithNonretainedObject:download]];
@@ -2306,9 +2306,9 @@ static void schedulePendingResizeDrain() {
             int percent = (int)(progress.fractionCompleted * 100);
 
             // Send download-progress event
-            if (self.zigEventHandler) {
+            if (self.ebEventHandler) {
                 NSString *eventData = [NSString stringWithFormat:@"{\"progress\":%d}", percent];
-                self.zigEventHandler(self.webviewId, strdup("download-progress"), strdup([eventData UTF8String]));
+                self.ebEventHandler(self.webviewId, strdup("download-progress"), strdup([eventData UTF8String]));
             }
         }
     }
@@ -2330,12 +2330,12 @@ static void schedulePendingResizeDrain() {
                                  isCmdClick ? @"true" : @"false",
                                  (unsigned long)navigationAction.modifierFlags];            
             
-            if (self.zigEventHandler) {                
+            if (self.ebEventHandler) {                
                 // Use strdup to create a persistent copy of the string for the FFI callback
                 char* eventDataCopy = strdup([eventData UTF8String]);
-                self.zigEventHandler(self.webviewId, strdup("new-window-open"), eventDataCopy);                
+                self.ebEventHandler(self.webviewId, strdup("new-window-open"), eventDataCopy);                
             } else {
-                NSLog(@"[NEW_WINDOW] ERROR: zigEventHandler is NULL!");
+                NSLog(@"[NEW_WINDOW] ERROR: ebEventHandler is NULL!");
             }
         }
         return nil;
@@ -2507,7 +2507,7 @@ runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters
         didReceiveScriptMessage:(WKScriptMessage *)message
                     replyHandler:(void (^)(id _Nullable, NSString * _Nullable))replyHandler {
         NSString *body = message.body;
-        const char *response = self.zigCallback(self.webviewId, body.UTF8String);
+        const char *response = self.ebCallback(self.webviewId, body.UTF8String);
         NSString *responseNSString = response ? [NSString stringWithUTF8String:response] : @"";
         replyHandler(responseNSString, nil);
     }
@@ -2518,7 +2518,7 @@ runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters
         didReceiveScriptMessage:(WKScriptMessage *)message {
         NSString *body = message.body;
         const char *bodyCStr = strdup(body.UTF8String);
-        self.zigCallback(self.webviewId, bodyCStr); 
+        self.ebCallback(self.webviewId, bodyCStr); 
 
         // Note: threadsafe JSCallbacks are invoked on the js worker thread, When called frequently they
         // can build up and take longer. Meanwhile objc GC auto free's the message body and the callback
@@ -2564,7 +2564,7 @@ runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters
                     : nil;
 
             // TODO: rewrite this so we can return a reference to the AbstractRenderer and then call
-            // init from zig after the handle is added to the webviewMap then we don't need this async stuff
+            // init from Rust after the handle is added to the webviewMap then we don't need this async stuff
             dispatch_async(dispatch_get_main_queue(), ^{
                 
                 // configuration
@@ -2608,14 +2608,14 @@ runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters
 
                 // delegates
                 MyNavigationDelegate *navigationDelegate = [[MyNavigationDelegate alloc] init];
-                navigationDelegate.zigCallback = navigationCallback;                
-                navigationDelegate.zigEventHandler = webviewEventHandler;
+                navigationDelegate.ebCallback = navigationCallback;                
+                navigationDelegate.ebEventHandler = webviewEventHandler;
                 navigationDelegate.webviewId = webviewId;
                 self.webView.navigationDelegate = navigationDelegate;
                 objc_setAssociatedObject(self.webView, "NavigationDelegate", navigationDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
                 MyWebViewUIDelegate *uiDelegate = [[MyWebViewUIDelegate alloc] init];
-                uiDelegate.zigEventHandler = webviewEventHandler;
+                uiDelegate.ebEventHandler = webviewEventHandler;
                 uiDelegate.webviewId = webviewId;
                 self.webView.UIDelegate = uiDelegate;
                 objc_setAssociatedObject(self.webView, "UIDelegate", uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);                                    
@@ -2624,7 +2624,7 @@ runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters
 
                 // eventBridge - event-only bridge (always set up for all webviews, including sandboxed)
                 MyScriptMessageHandler *eventHandler = [[MyScriptMessageHandler alloc] init];
-                eventHandler.zigCallback = eventBridgeHandler;
+                eventHandler.ebCallback = eventBridgeHandler;
                 eventHandler.webviewId = webviewId;
                 [self.webView.configuration.userContentController addScriptMessageHandler:eventHandler
                                                                                 name:[NSString stringWithUTF8String:"eventBridge"]];
@@ -2634,7 +2634,7 @@ runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters
                 if (!sandbox) {
                     // hostBridge/bunBridge - user RPC bridge
                     MyScriptMessageHandler *bunHandler = [[MyScriptMessageHandler alloc] init];
-                    bunHandler.zigCallback = bunBridgeHandler;
+                    bunHandler.ebCallback = bunBridgeHandler;
                     bunHandler.webviewId = webviewId;
                     [self.webView.configuration.userContentController addScriptMessageHandler:bunHandler
                                                                                     name:[NSString stringWithUTF8String:"hostBridge"]];
@@ -2644,7 +2644,7 @@ runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters
 
                     // internalBridge - internal RPC bridge (for webview tags, drag regions, etc.)
                     MyScriptMessageHandler *webviewTagHandler = [[MyScriptMessageHandler alloc] init];
-                    webviewTagHandler.zigCallback = internalBridgeHandler;
+                    webviewTagHandler.ebCallback = internalBridgeHandler;
                     webviewTagHandler.webviewId = webviewId;
                     [self.webView.configuration.userContentController addScriptMessageHandler:webviewTagHandler
                                                                                     name:[NSString stringWithUTF8String:"internalBridge"]];
@@ -4348,7 +4348,7 @@ extern "C" void wgpuToggleGPUTestShader(AbstractView* abstractView) {
             return;
         }
         if (!self.zigHandler) {
-            NSLog(@"No zig handler found for menu item");
+            NSLog(@"No handler found for menu item");
             return;
         }
         self.zigHandler(self.trayId, [action UTF8String]);
@@ -5868,7 +5868,7 @@ bool initializeCEF() {
     }
 
     // Match the helper name to the actual host executable ("bun" vs "main")
-    // instead of assuming Bun. Zig mode launches a different host binary.
+    // instead of assuming Bun.Rust mode launches a different host binary.
     NSString* executablePath = [[[NSProcessInfo processInfo] arguments] firstObject];
     NSString* executableName = [[executablePath lastPathComponent] stringByDeletingPathExtension];
     NSString* helperPath = nil;
@@ -7071,7 +7071,7 @@ extern "C" MyScriptMessageHandlerWithReply* addScriptMessageHandlerWithReply(WKW
                                                                              HandlePostMessageWithReply callback) {
 
     MyScriptMessageHandlerWithReply *handler = [[MyScriptMessageHandlerWithReply alloc] init];
-    handler.zigCallback = callback;
+    handler.ebCallback = callback;
     handler.webviewId = webviewId;
     [webView.configuration.userContentController addScriptMessageHandlerWithReply:handler
                                                                      contentWorld:WKContentWorld.pageWorld
@@ -7439,12 +7439,12 @@ extern "C" NSRect createNSRectWrapper(double x, double y, double width, double h
 
 NSWindow *createNSWindowWithFrameAndStyle(uint32_t windowId,
                                                      createNSWindowWithFrameAndStyleParams config,
-                                                     WindowCloseHandler zigCloseHandler,
-                                                     WindowMoveHandler zigMoveHandler,
-                                                     WindowResizeHandler zigResizeHandler,
-                                                     WindowFocusHandler zigFocusHandler,
-                                                     WindowBlurHandler zigBlurHandler,
-                                                     WindowKeyHandler zigKeyHandler) {
+                                                     WindowCloseHandler ebCloseHandler,
+                                                     WindowMoveHandler ebMoveHandler,
+                                                     WindowResizeHandler ebResizeHandler,
+                                                     WindowFocusHandler ebFocusHandler,
+                                                     WindowBlurHandler ebBlurHandler,
+                                                     WindowKeyHandler ebKeyHandler) {
     
     NSScreen *primaryScreen = [NSScreen screens][0];
     NSRect screenFrame = [primaryScreen frame];
@@ -7470,12 +7470,12 @@ NSWindow *createNSWindowWithFrameAndStyle(uint32_t windowId,
     objc_setAssociatedObject(window, kTrafficLightAppliedOffsetXKey, @(0), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(window, kTrafficLightAppliedOffsetYKey, @(0), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     WindowDelegate *delegate = [[WindowDelegate alloc] init];
-    delegate.closeHandler = zigCloseHandler;
-    delegate.resizeHandler = zigResizeHandler;
-    delegate.moveHandler = zigMoveHandler;
-    delegate.focusHandler = zigFocusHandler;
-    delegate.blurHandler = zigBlurHandler;
-    delegate.keyHandler = zigKeyHandler;
+    delegate.closeHandler = ebCloseHandler;
+    delegate.resizeHandler = ebResizeHandler;
+    delegate.moveHandler = ebMoveHandler;
+    delegate.focusHandler = ebFocusHandler;
+    delegate.blurHandler = ebBlurHandler;
+    delegate.keyHandler = ebKeyHandler;
     delegate.windowId = windowId;
     delegate.window = window;
     [window setDelegate:delegate];
@@ -7506,12 +7506,12 @@ extern "C" NSWindow *createWindowWithFrameAndStyleFromWorker(
   bool transparent,
   double trafficLightOffsetX,
   double trafficLightOffsetY,
-  WindowCloseHandler zigCloseHandler,
-  WindowMoveHandler zigMoveHandler,
-  WindowResizeHandler zigResizeHandler,
-  WindowFocusHandler zigFocusHandler,
-  WindowBlurHandler zigBlurHandler,
-  WindowKeyHandler zigKeyHandler
+  WindowCloseHandler ebCloseHandler,
+  WindowMoveHandler ebMoveHandler,
+  WindowResizeHandler ebResizeHandler,
+  WindowFocusHandler ebFocusHandler,
+  WindowBlurHandler ebBlurHandler,
+  WindowKeyHandler ebKeyHandler
   ) {
 
     // Validate frame values - use defaults if NaN or invalid
@@ -7537,12 +7537,12 @@ extern "C" NSWindow *createWindowWithFrameAndStyleFromWorker(
         window = createNSWindowWithFrameAndStyle(
             windowId,
             config,
-            zigCloseHandler,
-            zigMoveHandler,
-            zigResizeHandler,
-            zigFocusHandler,
-            zigBlurHandler,
-            zigKeyHandler
+            ebCloseHandler,
+            ebMoveHandler,
+            ebResizeHandler,
+            ebFocusHandler,
+            ebBlurHandler,
+            ebKeyHandler
         );
 
         // Handle transparent window background
@@ -8271,7 +8271,7 @@ extern "C" bool isDockIconVisible() {
 }
 
 extern "C" NSStatusItem* createTray(uint32_t trayId, const char *title, const char *pathToImage, bool isTemplate,
-                                    uint32_t width, uint32_t height, ZigStatusItemHandler zigTrayItemHandler) {
+                                    uint32_t width, uint32_t height, EbStatusItemHandler ebTrayItemHandler) {
     
     __block NSStatusItem* trayPtr;
     
@@ -8289,10 +8289,10 @@ extern "C" NSStatusItem* createTray(uint32_t trayId, const char *title, const ch
             statusItem.button.title = titleString;
         }    
 
-        if (zigTrayItemHandler) {
+        if (ebTrayItemHandler) {
             StatusItemTarget *target = [[StatusItemTarget alloc] init];
             target.statusItem = statusItem;
-            target.zigHandler = zigTrayItemHandler;
+            target.zigHandler = ebTrayItemHandler;
             target.trayId = trayId;        
             objc_setAssociatedObject(statusItem.button, "statusItemTarget", target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             [statusItem.button setTarget:target];
@@ -8390,7 +8390,7 @@ extern "C" const char* getTrayBounds(NSStatusItem *statusItem) {
     return strdup([json UTF8String]);
 }
 
-extern "C" void setApplicationMenu(const char *jsonString, ZigStatusItemHandler zigTrayItemHandler) {
+extern "C" void setApplicationMenu(const char *jsonString, EbStatusItemHandler ebTrayItemHandler) {
     // Copy the string before dispatch_async since the JS-side buffer may be GC'd
     char *jsonCopy = strdup(jsonString);
     runOnMainThreadAsyncVoid(^{
@@ -8403,7 +8403,7 @@ extern "C" void setApplicationMenu(const char *jsonString, ZigStatusItemHandler 
             return;
         }
         StatusItemTarget *target = [[StatusItemTarget alloc] init];
-        target.zigHandler = zigTrayItemHandler;
+        target.zigHandler = ebTrayItemHandler;
         target.trayId = 0;
         NSMenu *menu = createMenuFromConfig(menuArray, target);
         objc_setAssociatedObject(NSApp, "AppMenuTarget", target, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -8411,7 +8411,7 @@ extern "C" void setApplicationMenu(const char *jsonString, ZigStatusItemHandler 
     });
 }
 
-extern "C" void showContextMenu(const char *jsonString, ZigStatusItemHandler contextMenuHandler) {
+extern "C" void showContextMenu(const char *jsonString, EbStatusItemHandler contextMenuHandler) {
     // Copy the string before dispatch_async since the JS-side buffer may be GC'd
     char *jsonCopy = strdup(jsonString);
     runOnMainThreadAsyncVoid(^{
@@ -8446,7 +8446,7 @@ extern "C" void showContextMenu(const char *jsonString, ZigStatusItemHandler con
 
 extern "C" void getWebviewSnapshot(uint32_t hostId, uint32_t webviewId,
                                    WKWebView *webView,
-                                   zigSnapshotCallback callback) {
+                                   ebSnapshotCallback callback) {
     WKSnapshotConfiguration *snapshotConfig = [[WKSnapshotConfiguration alloc] init];
     [webView takeSnapshotWithConfiguration:snapshotConfig completionHandler:^(NSImage *snapshotImage, NSError *error) {
         if (error) {

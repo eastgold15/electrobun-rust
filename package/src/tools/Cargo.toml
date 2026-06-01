@@ -5,7 +5,7 @@ edition = "2021"
 description = "Electrobun 构建和运行时工具集 — ASAR, bsdiff/bspatch, zstd"
 
 [[bin]]
-name = "zig-asar"
+name = "rust-asar"
 path = "src/bin/asar.rs"
 
 [[bin]]
@@ -17,7 +17,7 @@ name = "bspatch"
 path = "src/bin/bspatch.rs"
 
 [[bin]]
-name = "zig-zstd"
+name = "rust-zstd"
 path = "src/bin/zstd.rs"
 
 [lib]

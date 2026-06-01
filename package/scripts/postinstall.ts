@@ -66,7 +66,7 @@ async function compilePreloads() {
 // ── Skip if already cached ────────────────────────────────────
 if (existsSync(platformDistDir)) {
   const entries = readdirSync(platformDistDir).filter(
-    (f) => !f.startsWith(".") && f !== "api" && f !== "zig-asar",
+    (f) => !f.startsWith(".") && f !== "api" && f !== "rust-asar",
   );
   if (entries.length > 3) {
     console.log("  Core binaries already exist for " + OS + "-" + ARCH + ".");

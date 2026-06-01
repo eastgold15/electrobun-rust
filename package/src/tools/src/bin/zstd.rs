@@ -1,15 +1,15 @@
-//! zig-zstd CLI — 使用 Rust zstd crate 实现压缩/解压
+//! rust-zstd CLI — 使用 Rust zstd crate 实现压缩/解压
 //!
 //! 兼容命令：
-//!   zig-zstd compress -i <input> -o <output> [--threads max]
-//!   zig-zstd decompress -i <input> -o <output> [--no-timing]
+//!   rust-zstd compress -i <input> -o <output> [--threads max]
+//!   rust-zstd decompress -i <input> -o <output> [--no-timing]
 
 use clap::{Parser, Subcommand};
 use std::io::Read;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "zig-zstd", version = "0.1.0", about = "zstd 压缩/解压工具")]
+#[command(name = "rust-zstd", version = "0.1.0", about = "zstd 压缩/解压工具")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

@@ -156,14 +156,14 @@ static void releaseContextForPartition(const std::string& partition);
 
 // Webview and tray callback types are defined in shared/callbacks.h
 // Platform-specific alias
-typedef StatusItemHandler ZigStatusItemHandler;
+typedef StatusItemHandler EbStatusItemHandler;
 
 // Menu item structure
 struct MenuItemData {
     uint32_t menuId;
     std::string action;
     std::string type;
-    ZigStatusItemHandler clickHandler;
+    EbStatusItemHandler clickHandler;
 };
 
 // Global menu item counter and storage
@@ -173,7 +173,7 @@ static std::mutex g_menuItemsMutex;
 
 // Global application menu storage
 static std::string g_applicationMenuConfig;
-static ZigStatusItemHandler g_applicationMenuHandler = nullptr;
+static EbStatusItemHandler g_applicationMenuHandler = nullptr;
 
 // Webview content storage (replaces JSCallback approach)
 static std::map<uint32_t, std::string> webviewHTMLContent;
@@ -207,8 +207,8 @@ class CEFWebViewImpl;
 std::string getExecutableDir();
 std::string getExecutableBaseName();
 GtkWidget* getContainerViewOverlay(GtkWidget* window);
-GtkWidget* createMenuFromParsedItems(const std::vector<MenuJsonValue>& items, ZigStatusItemHandler clickHandler, uint32_t trayId);
-GtkWidget* createApplicationMenuBar(const std::vector<MenuJsonValue>& items, ZigStatusItemHandler clickHandler);
+GtkWidget* createMenuFromParsedItems(const std::vector<MenuJsonValue>& items, EbStatusItemHandler clickHandler, uint32_t trayId);
+GtkWidget* createApplicationMenuBar(const std::vector<MenuJsonValue>& items, EbStatusItemHandler clickHandler);
 void applyApplicationMenuToWindow(GtkWidget* window);
 void initializeGTK();
 
@@ -5213,11 +5213,11 @@ public:
     uint32_t trayId;
     AppIndicator* indicator;
     GtkWidget* menu;
-    ZigStatusItemHandler clickHandler;
+    EbStatusItemHandler clickHandler;
     std::string title;
     std::string imagePath;
     
-    TrayItem(uint32_t id, const char* title, const char* pathToImage, bool isTemplate, ZigStatusItemHandler handler) 
+    TrayItem(uint32_t id, const char* title, const char* pathToImage, bool isTemplate, EbStatusItemHandler handler) 
         : trayId(id), indicator(nullptr), menu(nullptr), clickHandler(handler),
           title(title ? title : ""), imagePath(pathToImage ? pathToImage : "") {
         
@@ -5437,7 +5437,7 @@ static void onMenuItemActivate(GtkMenuItem* menuItem, gpointer userData) {
 }
 
 // Create GTK menu from parsed menu items
-GtkWidget* createMenuFromParsedItems(const std::vector<MenuJsonValue>& items, ZigStatusItemHandler clickHandler, uint32_t trayId) {
+GtkWidget* createMenuFromParsedItems(const std::vector<MenuJsonValue>& items, EbStatusItemHandler clickHandler, uint32_t trayId) {
     GtkWidget* menu = gtk_menu_new();
     
     for (const auto& item : items) {
@@ -5495,7 +5495,7 @@ GtkWidget* createMenuFromParsedItems(const std::vector<MenuJsonValue>& items, Zi
 }
 
 // Create GTK menu bar for application menus (File, Edit, etc.)
-GtkWidget* createApplicationMenuBar(const std::vector<MenuJsonValue>& items, ZigStatusItemHandler clickHandler) {
+GtkWidget* createApplicationMenuBar(const std::vector<MenuJsonValue>& items, EbStatusItemHandler clickHandler) {
     GtkWidget* menuBar = gtk_menu_bar_new();
     
     for (const auto& item : items) {
@@ -9585,7 +9585,7 @@ ELECTROBUN_EXPORT void* createTray(uint32_t trayId, const char* title, const cha
                 title ? title : "",
                 pathToImage ? pathToImage : "",
                 isTemplate,
-                reinterpret_cast<ZigStatusItemHandler>(clickHandler)
+                reinterpret_cast<EbStatusItemHandler>(clickHandler)
             );
             
             TrayItem* trayPtr = tray.get();
@@ -9682,7 +9682,7 @@ ELECTROBUN_EXPORT void setApplicationMenu(const char* jsonString, void* applicat
         try {
             // Store the menu config globally so it can be applied to future windows
             g_applicationMenuConfig = std::string(jsonString);
-            g_applicationMenuHandler = reinterpret_cast<ZigStatusItemHandler>(applicationMenuHandler);
+            g_applicationMenuHandler = reinterpret_cast<EbStatusItemHandler>(applicationMenuHandler);
             
             std::vector<MenuJsonValue> menuItems = parseMenuJson(g_applicationMenuConfig);
             

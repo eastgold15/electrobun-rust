@@ -197,7 +197,7 @@ fn fix_executable_permissions(app_dir: &Path) -> Result<(), Box<dyn std::error::
         "bin/bun",
         "bin/bspatch",
         "bin/bsdiff",
-        "bin/zig-zstd",
+        "bin/rust-zstd",
     ];
 
     for exe in executables {

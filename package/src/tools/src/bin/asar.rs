@@ -1,7 +1,7 @@
-//! zig-asar CLI — ASAR 打包工具
+//! rust-asar CLI — ASAR 打包工具
 //!
 //! 兼容命令：
-//!   zig-asar pack <source_dir> <output.asar> [--unpack pattern ...]
+//!   rust-asar pack <source_dir> <output.asar> [--unpack pattern ...]
 //!
 //! 注意：此文件自包含 ASAR 打包逻辑，不依赖 lib.rs（cdylib）。
 //! lib.rs 中的 asar 模块只包含读取逻辑和 C FFI 导出。
@@ -34,7 +34,7 @@ struct AsarRoot {
 
 /// ASAR 打包 CLI
 #[derive(Parser)]
-#[command(name = "zig-asar", version = "0.1.0", about = "ASAR 打包工具")]
+#[command(name = "rust-asar", version = "0.1.0", about = "ASAR 打包工具")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,

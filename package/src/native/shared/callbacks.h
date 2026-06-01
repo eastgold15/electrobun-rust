@@ -1,5 +1,5 @@
 // callbacks.h - Cross-platform callback type definitions
-// Used for bridging between native code and Zig/Bun FFI across Windows, macOS, and Linux
+// Used for bridging between native code and Rust/Bun FFI across Windows, macOS, and Linux
 //
 // This is a header-only implementation to avoid build complexity.
 
