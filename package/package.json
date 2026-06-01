@@ -1,5 +1,5 @@
 {
-	"name": "electrobun",
+	"name": "electrobun-rust",
 	"version": "1.18.4-beta.3",
 	"description": "Build ultra fast, tiny, and cross-platform desktop apps with Typescript.",
 	"license": "MIT",
@@ -18,7 +18,7 @@
 	},
 	"type": "module",
 	"bin": {
-		"electrobun": "./bin/electrobun.cjs"
+		"electrobun-rust": "./bin/electrobun.cjs"
 	},
 	"homepage": "https://electrobun.dev",
 	"repository": {

@@ -38,6 +38,19 @@ import { getTemplate, getTemplateNames } from "./templates/embedded";
 // @ts-expect-error - reserved for future use
 const _MAX_CHUNK_SIZE = 1024 * 2;
 
+// GitHub configuration
+const GITHUB_CONFIG = {
+  // Your GitHub username and repo
+  owner: process.env.ELECTROBUN_GITHUB_OWNER || 'eastgold15',
+  electrobunRepo: process.env.ELECTROBUN_GITHUB_REPO || 'electrobun-rust',
+  // Blackboardsh's Bun fork (keep this unless you have your own Bun fork)
+  bunOwner: 'blackboardsh',
+  bunRepo: 'bun',
+  // Blackboardsh's electrobun-dawn fork (keep this)
+  dawnOwner: 'blackboardsh',
+  dawnRepo: 'electrobun-dawn',
+};
+
 // const binExt = OS === 'win' ? '.exe' : '';
 
 // Create a tar file using system tar command (preserves file permissions unlike Bun.Archive)
@@ -336,7 +349,7 @@ async function ensureCoreDependencies(
 	const platformName =
 		platformOS === "macos" ? "darwin" : platformOS === "win" ? "win" : "linux";
 	const archName = platformArch;
-	const coreTarballUrl = `https://github.com/blackboardsh/electrobun/releases/download/${version}/electrobun-core-${platformName}-${archName}.tar.gz`;
+	const coreTarballUrl = `https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.electrobunRepo}/releases/download/${version}/electrobun-core-${platformName}-${archName}.tar.gz`;
 
 	console.log(`Downloading core binaries from: ${coreTarballUrl}`);
 
@@ -845,7 +858,7 @@ async function downloadBunnyBun(
 	const binExt = platformOS === "win" ? ".exe" : "";
 	const overrideDir = join(ELECTROBUN_CACHE_PATH, "bunny-bun-override", `${platformOS}-${platformArch}`);
 	const overrideBinary = join(overrideDir, `bun${binExt}`);
-	const bunUrl = `https://github.com/blackboardsh/bun/releases/download/${releaseTag}/${assetName}`;
+	const bunUrl = `https://github.com/${GITHUB_CONFIG.bunOwner}/${GITHUB_CONFIG.bunRepo}/releases/download/${releaseTag}/${assetName}`;
 
 	console.log(`Using Bunny Bun: ${releaseTag}`);
 	console.log(`Downloading from: ${bunUrl}`);
@@ -929,7 +942,7 @@ async function downloadBunnyBun(
 			try { rmSync(overrideDir, { recursive: true, force: true }); } catch {}
 		}
 		console.error(`Failed to set up Bunny Bun ${releaseTag} for ${platformOS}-${platformArch}:`, error.message);
-		console.error(`\nVerify the release tag exists at: https://github.com/blackboardsh/bun/releases`);
+		console.error(`Verify the release tag exists at: https://github.com/${GITHUB_CONFIG.bunOwner}/${GITHUB_CONFIG.bunRepo}/releases`);
 		process.exit(1);
 	}
 }
@@ -995,7 +1008,7 @@ async function ensureCEFDependencies(
 	const platformName =
 		platformOS === "macos" ? "darwin" : platformOS === "win" ? "win" : "linux";
 	const archName = platformArch;
-	const cefTarballUrl = `https://github.com/blackboardsh/electrobun/releases/download/${version}/electrobun-cef-${platformName}-${archName}.tar.gz`;
+	const cefTarballUrl = `https://github.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.electrobunRepo}/releases/download/${version}/electrobun-cef-${platformName}-${archName}.tar.gz`;
 
 	// Helper function to download with retry logic
 	async function downloadWithRetry(
@@ -1281,8 +1294,8 @@ async function ensureWGPUDependencies(
 	const archName = platformArch;
 	const baseUrl =
 		normalizedVersion === "latest"
-			? "https://github.com/blackboardsh/electrobun-dawn/releases/latest/download"
-			: `https://github.com/blackboardsh/electrobun-dawn/releases/download/${normalizedVersion}`;
+			? `https://github.com/${GITHUB_CONFIG.dawnOwner}/${GITHUB_CONFIG.dawnRepo}/releases/latest/download`
+			: `https://github.com/${GITHUB_CONFIG.dawnOwner}/${GITHUB_CONFIG.dawnRepo}/releases/download/${normalizedVersion}`;
 	const tarballUrl = `${baseUrl}/electrobun-dawn-${platformName}-${archName}.tar.gz`;
 
 	async function downloadWithRetry(
