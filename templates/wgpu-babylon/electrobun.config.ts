@@ -1,4 +1,4 @@
-import type { ElectrobunConfig } from "electrobun";
+import type { ElectrobunConfig } from "@pori15/electrobun-rust";
 
 export default {
   app: {

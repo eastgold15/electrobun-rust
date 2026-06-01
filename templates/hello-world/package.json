@@ -8,7 +8,7 @@
 		"build": "electrobun build"
 	},
 	"dependencies": {
-		"electrobun": "file:../../package"
+		"@pori15/electrobun-rust": "file:../../package"
 	},
 	"devDependencies": {
 		"@types/bun": "latest"

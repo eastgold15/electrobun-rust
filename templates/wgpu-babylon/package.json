@@ -9,7 +9,7 @@
 		"build:canary": "electrobun build --env=canary"
 	},
 	"dependencies": {
-		"electrobun": "file:../../package",
+		"@pori15/electrobun-rust": "file:../../package",
 		"@babylonjs/core": "^7.45.0"
 	},
 	"devDependencies": {

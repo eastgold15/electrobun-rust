@@ -13,7 +13,7 @@
 		"build:canary": "vite build && electrobun build --env=canary"
 	},
 	"dependencies": {
-		"electrobun": "file:../../package"
+		"@pori15/electrobun-rust": "file:../../package"
 	},
 	"devDependencies": {
 		"@sveltejs/vite-plugin-svelte": "^5.0.1",

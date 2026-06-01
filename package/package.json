@@ -18,7 +18,6 @@
 	},
 	"type": "module",
 	"bin": {
-		"electrobun": "./bin/electrobun.ts",
 		"electrobun-rust": "./bin/electrobun.ts"
 	},
 	"homepage": "https://electrobun.dev",
