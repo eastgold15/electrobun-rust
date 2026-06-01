@@ -28,16 +28,16 @@ pub use types::*;
 // Global state using thread-safe primitives
 // Zig: var window_registry = std.AutoHashMap(u32, WindowState).init(allocator)
 lazy_static::lazy_static! {
-    static ref WINDOW_REGISTRY: Arc<Mutex<std::collections::HashMap<u32, window::WindowState>>> = 
+    static ref WINDOW_REGISTRY: Arc<Mutex<std::collections::HashMap<u32, crate::types::WindowState>>> = 
         Arc::new(Mutex::new(std::collections::HashMap::new()));
     
-    static ref WEBVIEW_REGISTRY: Arc<Mutex<std::collections::HashMap<u32, webview::WebviewState>>> = 
+    static ref WEBVIEW_REGISTRY: Arc<Mutex<std::collections::HashMap<u32, crate::types::WebviewState>>> = 
         Arc::new(Mutex::new(std::collections::HashMap::new()));
     
-    static ref WGPU_VIEW_REGISTRY: Arc<Mutex<std::collections::HashMap<u32, wgpu::WgpuViewState>>> = 
+    static ref WGPU_VIEW_REGISTRY: Arc<Mutex<std::collections::HashMap<u32, crate::types::WgpuViewState>>> = 
         Arc::new(Mutex::new(std::collections::HashMap::new()));
     
-    static ref TRAY_REGISTRY: Arc<Mutex<std::collections::HashMap<u32, tray::TrayState>>> = 
+    static ref TRAY_REGISTRY: Arc<Mutex<std::collections::HashMap<u32, crate::types::TrayState>>> = 
         Arc::new(Mutex::new(std::collections::HashMap::new()));
     
     static ref NEXT_WINDOW_ID: Arc<Mutex<u32>> = Arc::new(Mutex::new(1));
@@ -179,7 +179,7 @@ pub extern "C" fn electrobun_create_window(
         unsafe { CStr::from_ptr(title).to_string_lossy().into_owned() }
     };
     
-    let options = window::WindowOptions {
+    let options = crate::types::WindowOptions {
         title: title_str,
         x,
         y,
@@ -365,7 +365,7 @@ pub extern "C" fn electrobun_create_webview(
         unsafe { CStr::from_ptr(partition).to_string_lossy().into_owned() }
     };
     
-    let options = webview::WebviewOptions {
+    let options = crate::types::WebviewOptions {
         window_id,
         url: url_str,
         secret_key: secret_key_str,
@@ -578,9 +578,9 @@ pub extern "C" fn electrobun_register_webview_callbacks(
     bridge_callback: Option<unsafe extern "C" fn(u32, *const c_char)>,
 ) {
     let mut callbacks = webview::DEFAULT_WEBVIEW_CALLBACKS.lock().unwrap();
-    callbacks.navigation_callback = navigation_callback.map(|f| Arc::new(f));
-    callbacks.event_callback = event_callback.map(|f| Arc::new(f));
-    callbacks.bridge_callback = bridge_callback.map(|f| Arc::new(f));
+    callbacks.navigation_callback = navigation_callback;
+    callbacks.event_callback = event_callback;
+    callbacks.bridge_callback = bridge_callback;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

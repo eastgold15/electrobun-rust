@@ -22,7 +22,7 @@ lazy_static::lazy_static! {
 }
 
 /// Get wakeup file descriptor
-pub fn get_wakeup_fd() -> Result<c_int, ElectrobunError> {
+pub fn get_wakeup_fd() -> Option<c_int> {
     let fds = HOST_MESSAGE_WAKEUP_FD.lock().unwrap();
     fds.map(|(read_fd, _)| read_fd)
 }
@@ -81,7 +81,7 @@ pub fn decode_base64(input: &[u8]) -> Result<Vec<u8>, ElectrobunError> {
 }
 
 /// Encode base64
-pub fn encode_base64(input: &[u8]) -> Vec<u8> {
+pub fn encode_base64(input: &[u8]) -> String {
     use base64::Engine;
     base64::engine::general_purpose::STANDARD.encode(input)
 }

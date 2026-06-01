@@ -92,7 +92,6 @@ impl Default for WindowOptions {
 }
 
 /// Window state (internal)
-#[derive(Debug, Clone)]
 pub struct WindowState {
     pub id: u32,
     pub title: String,
@@ -103,11 +102,17 @@ pub struct WindowState {
     pub minimized: bool,
     pub fullscreen: bool,
     // Callback handlers (stored as function pointers)
+    #[allow(dead_code)]
     pub close_handler: Option<Box<dyn Fn(u32) + Send + Sync>>,
+    #[allow(dead_code)]
     pub move_handler: Option<Box<dyn Fn(u32, f64, f64) + Send + Sync>>,
+    #[allow(dead_code)]
     pub resize_handler: Option<Box<dyn Fn(u32, f64, f64, f64, f64) + Send + Sync>>,
+    #[allow(dead_code)]
     pub focus_handler: Option<Box<dyn Fn(u32) + Send + Sync>>,
+    #[allow(dead_code)]
     pub blur_handler: Option<Box<dyn Fn(u32) + Send + Sync>>,
+    #[allow(dead_code)]
     pub key_handler: Option<Box<dyn Fn(u32, u32, u32, u32, u32) + Send + Sync>>,
 }
 
@@ -222,12 +227,12 @@ impl Default for TrayOptions {
 }
 
 /// Tray state (internal)
-#[derive(Debug, Clone)]
 pub struct TrayState {
     pub id: u32,
     pub title: String,
     pub image: String,
     pub visible: bool,
+    #[allow(dead_code)]
     pub handler: Option<Box<dyn Fn(u32, &str) + Send + Sync>>,
 }
 
@@ -247,24 +252,27 @@ pub struct HostTransportState {
     pub port: u32,
 }
 
-/// Default webview callbacks
-#[derive(Debug, Clone, Default)]
+/// Default webview callbacks - stores C function pointers for FFI
 pub struct DefaultWebviewCallbacks {
     pub navigation_callback: Option<
-        std::sync::Arc<
-            dyn Fn(u32, &str) -> u32 + Send + Sync,
-        >,
+        unsafe extern "C" fn(u32, *const std::os::raw::c_char) -> u32
     >,
     pub event_callback: Option<
-        std::sync::Arc<
-            dyn Fn(u32, &str, &str) + Send + Sync,
-        >,
+        unsafe extern "C" fn(u32, *const std::os::raw::c_char, *const std::os::raw::c_char)
     >,
     pub bridge_callback: Option<
-        std::sync::Arc<
-            dyn Fn(u32, &str) + Send + Sync,
-        >,
+        unsafe extern "C" fn(u32, *const std::os::raw::c_char)
     >,
+}
+
+impl Default for DefaultWebviewCallbacks {
+    fn default() -> Self {
+        Self {
+            navigation_callback: None,
+            event_callback: None,
+            bridge_callback: None,
+        }
+    }
 }
 
 /// Pending host message

@@ -5,8 +5,7 @@ use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
-use sha1::Sha1;
-use std::io::Write;
+use sha1::{Sha1, Digest};
 
 /// AES-256-GCM key length (32 bytes)
 pub const AES256_KEY_LENGTH: usize = 32;
@@ -71,7 +70,7 @@ pub fn decrypt_message(key: &[u8; AES256_KEY_LENGTH], nonce: &[u8; 12], cipherte
 
 /// Generate a random nonce
 pub fn generate_nonce() -> [u8; 12] {
-    use aes_gcm::aead::RandomizedPrependable;
+    use aes_gcm::aead::rand_core::RngCore;
     let mut nonce = [0u8; 12];
     OsRng.fill_bytes(&mut nonce);
     nonce
@@ -79,6 +78,7 @@ pub fn generate_nonce() -> [u8; 12] {
 
 /// Generate a random key
 pub fn generate_key() -> [u8; AES256_KEY_LENGTH] {
+    use aes_gcm::aead::rand_core::RngCore;
     let mut key = [0u8; AES256_KEY_LENGTH];
     OsRng.fill_bytes(&mut key);
     key
