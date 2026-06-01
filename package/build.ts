@@ -663,8 +663,8 @@ async function copyToDist() {
 	// Electrobun cli and npm launcher
 	await $`cp src/npmbin/index.js dist/npmbin.js`;
 	await $`cp src/cli/build/electrobun${binExt} dist/electrobun${binExt}`;
-	// Also copy to bin/ so the npm bin shim (bin/electrobun.cjs) can find it
-	// during local dev (kitchen uses "electrobun": "file:../package")
+	// Also copy to bin/ so the compiled binary is available for fallback
+	// (bin/electrobun.ts is the primary entry, this is for production npm)
 	await $`mkdir -p bin && cp src/cli/build/electrobun${binExt} bin/electrobun${binExt}`;
 	// Electrobun's Typescript bun and browser apis
 	await copyApiFiles();

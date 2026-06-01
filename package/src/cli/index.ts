@@ -2943,9 +2943,13 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 				dereference: true,
 			});
 		} else if (targetOS === "win") {
-			cpSync(targetPaths.CORE_WIN, join(appBundleMacOSPath, "ElectrobunCore.dll"), {
-				dereference: true,
-			});
+			if (existsSync(targetPaths.CORE_WIN)) {
+						cpSync(targetPaths.CORE_WIN, join(appBundleMacOSPath, "ElectrobunCore.dll"), {
+							dereference: true,
+						});
+					} else {
+						console.log("  (ElectrobunCore.dll not found, skipping)");
+					}
 
 			const nativeWrapperMacosSource = targetPaths.NATIVE_WRAPPER_WIN;
 			const nativeWrapperMacosDestination = join(
@@ -5713,3 +5717,4 @@ usageDescriptions : ""}${urlTypes ? "\n" + urlTypes : ""}${documentTypes ?
 	console.error("Fatal error:", error);
 	process.exit(1);
 });
+

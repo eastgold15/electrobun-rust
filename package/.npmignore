@@ -17,8 +17,8 @@
 /bin/electrobun.exe
 /.cache/
 
-# Include postinstall script
-!/bin/electrobun-rust.cjs
+# Include TypeScript CLI entry
+!/bin/electrobun.ts
 
 # Include CLI source
 !/src/cli/
