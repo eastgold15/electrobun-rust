@@ -47,6 +47,18 @@ jobs:
         with:
           submodules: recursive
 
+      - uses: actions-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            package/src/tools
+            package/src/launcher
+            package/src/extractor
+            package/src/core
+
       - name: Log disk space (job start)
         shell: bash
         run: |

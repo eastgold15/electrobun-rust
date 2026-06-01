@@ -16,6 +16,10 @@ jobs:
         with:
           bun-version: latest
 
+      - uses: actions-rust-toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update

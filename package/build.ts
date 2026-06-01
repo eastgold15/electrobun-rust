@@ -195,73 +195,87 @@ var VCVARSALL_PATH = "";
 async function findMsvcTools() {
 	if (OS !== "win") return;
 
+	// 先尝试用 vswhere 查找
+	let foundPath = "";
 	try {
 		const vswherePath = join(
 			process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)",
-			"Microsoft Visual Studio",
-			"Installer",
-			"vswhere.exe",
+			"Microsoft Visual Studio", "Installer", "vswhere.exe",
 		);
-		if (!existsSync(vswherePath)) {
-			console.log("vswhere not found, using default tool names");
+		if (existsSync(vswherePath)) {
+			const result = await $`powershell -command "& '${vswherePath}' -latest -products * -requir
+  Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath"`.quiet();
+			if (result.exitCode === 0 && result.stdout.toString().trim()) {
+				foundPath = result.stdout.toString().trim();
+			}
+		}
+	} catch { }
+
+	// vswhere 没找到则搜索常用路径
+	if (!foundPath) {
+		const paths = [
+			"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community",
+			"C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools",
+			"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\Community",
+			"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools",
+			"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional",
+			"C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise",
+		];
+		for (const vsPath of paths) {
+			if (existsSync(join(vsPath, "VC", "Auxiliary", "Build", "vcvarsall.bat"))) {
+				foundPath = vsPath;
+				break;
+			}
+		}
+	}
+
+	if (foundPath) {
+		VCVARSALL_PATH = join(foundPath, "VC", "Auxiliary", "Build", "vcvarsall.bat");
+		if (existsSync(VCVARSALL_PATH)) {
+			console.log("✓ Found MSVC tools with vcvarsall.bat");
 			return;
 		}
+	}
 
-		// Find Visual Studio installation path
-		const vsInstallResult =
-			await $`powershell -command "& '${vswherePath}' -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath"`.quiet();
-		if (
-			vsInstallResult.exitCode !== 0 ||
-			!vsInstallResult.stdout.toString().trim()
-		) {
-			console.log("Could not find Visual Studio installation path");
-			return;
-		}
-
-		const vsInstallPath = vsInstallResult.stdout.toString().trim();
-		VCVARSALL_PATH = join(
-			vsInstallPath,
-			"VC",
-			"Auxiliary",
-			"Build",
-			"vcvarsall.bat",
-		);
-
-		if (!existsSync(VCVARSALL_PATH)) {
-			console.log("vcvarsall.bat not found at expected location");
-			VCVARSALL_PATH = "";
-			return;
-		}
-
-		console.log("✓ Found MSVC tools with vcvarsall.bat");
+	// 最终 fallback
+	try {
+		await $`where cl.exe`.quiet();
+		console.log("⚠ vcvarsall.bat 未找到，但 cl.exe 可用");
 	} catch {
-		console.log("Could not locate MSVC tools, using default tool names");
+		console.log("MSVC 编译器未找到");
 	}
 }
 
-// Helper function to run MSVC commands with environment set up
 async function runMsvcCommand(command: string) {
-	if (!VCVARSALL_PATH) {
-		throw new Error(
-			`MSVC 编译器未找到。无法执行 MSVC 命令:\n  ${command}\n\n` +
-			`请安装 Visual Studio 2022 Build Tools 并确保勾选"使用 C++ 的桌面开发"工作负载。\n` +
-			`或手动设置环境后直接运行该命令。`,
-		);
+	if (VCVARSALL_PATH) {
+		// 有 vcvarsall: 用完整环境
+		const tempBat = join(process.cwd(), "temp_build_cmd.bat");
+		writeFileSync(tempBat, `@echo off\ncall "${VCVARSALL_PATH}" x64 >nul\n${command}`);
+		try {
+			const result = await $`cmd /c "${tempBat}"`;
+			await $`rm "${tempBat}"`.catch(() => { });
+			return result;
+		} catch (error) {
+			await $`rm "${tempBat}"`.catch(() => { });
+			throw error;
+		}
 	}
 
-	// Create a temporary batch file to run the command with proper environment
-	const tempBat = join(process.cwd(), "temp_build_cmd.bat");
-	const batContent = `@echo off\ncall "${VCVARSALL_PATH}" x64 >nul\n${command}`;
-
-	writeFileSync(tempBat, batContent);
-
+	// 没有 vcvarsall: 直接 cmd /c（cl.exe 在 PATH 就能用）
+	console.log("直接运行 MSVC 命令（未加载 vcvarsall 环境）...");
+	const noEnvBat = join(process.cwd(), "temp_build_cmd.bat");
+	writeFileSync(noEnvBat, `@echo off\n${command}`);
 	try {
-		const result = await $`cmd /c "${tempBat}"`;
-		await $`rm "${tempBat}"`.catch(() => { });
+		const result = await $`cmd /c "${noEnvBat}"`;
+		await $`rm "${noEnvBat}"`.catch(() => { });
 		return result;
 	} catch (error) {
-		await $`rm "${tempBat}"`.catch(() => { });
-		throw error;
+		await $`rm "${noEnvBat}"`.catch(() => { });
+		throw new Error(
+			`MSVC 命令执行失败:\n  ${command}\n\n` +
+			"请安装 Visual Studio 2022 Build Tools 或\n" +
+			`在"x64 Native Tools Command Prompt"中运行 bun build.ts。`,
+		);
 	}
 }
 

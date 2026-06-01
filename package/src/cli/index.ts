@@ -27,19 +27,19 @@ import { ELECTROBUN_VERSION } from "../shared/electrobun-version";
 // files.  Node's copyFileSync doesn't have this issue.
 function safeCopyFile(src: string, dest: string, maxRetries = 3) {
 	let lastError: Error | null = null;
-	
+
 	for (let attempt = 1; attempt <= maxRetries; attempt++) {
 		try {
 			copyFileSync(src, dest);
 			return; // Success
 		} catch (err: any) {
 			lastError = err;
-			
+
 			// Only retry on EPERM or EBUSY errors (file locked/in use)
 			if ((err.code !== 'EPERM' && err.code !== 'EBUSY') || attempt === maxRetries) {
 				throw err;
 			}
-			
+
 			// Delete the destination file if it exists and retry
 			if (existsSync(dest)) {
 				try {
@@ -48,13 +48,13 @@ function safeCopyFile(src: string, dest: string, maxRetries = 3) {
 					// If we can't delete it, wait and retry
 				}
 			}
-			
+
 			// Wait before retrying (exponential backoff: 100ms, 200ms, 400ms)
 			const delay = Math.pow(2, attempt - 1) * 100;
 			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
 		}
 	}
-	
+
 	// Should never reach here, but just in case
 	if (lastError) throw lastError;
 }
@@ -199,14 +199,11 @@ const _PATHS = getPlatformPaths(OS, ARCH);
 
 
 
+function getCEFHelperBaseName(): string {
+	return "bun";
+}
 
 
-
-
-	/** 获取 CEF Helper 进程的基础名称 */
-	function getCEFHelperBaseName(): string {
-		return "launcher";
-	}
 function getCEFHelperNames(): string[] {
 	const baseName = getCEFHelperBaseName();
 	return [
@@ -2516,7 +2513,7 @@ Categories=Utility;Application;
 					`failed to bundle ${bunSource} because it doesn't exist.\n You need a config.build.bun.entrypoint source file to build.`,
 				);
 			}
-		} 
+		}
 		const isCarrotOnly = config.build.carrot?.carrotOnly === true;
 
 		// build macos bundle
