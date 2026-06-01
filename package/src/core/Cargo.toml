@@ -1,0 +1,59 @@
+[package]
+name = "electrobun-core"
+version = "0.1.0"
+edition = "2021"
+description = "Electrobun core FFI library"
+license = "MIT"
+
+[lib]
+name = "electrobun_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# FFI
+libc = "0.2"
+libloading = "0.9.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Crypto
+aes-gcm = "0.10"
+sha1 = "0.11.0"
+base64 = "0.22.1"
+
+# Compression
+zstd = "0.13"
+
+# Async
+tokio = { version = "1", features = ["full"] }
+
+# Error handling
+thiserror = "2.0.18"
+anyhow = "1.0"
+
+# Logging
+log = "0.4"
+env_logger = "0.11.10"
+
+# Lazy static
+lazy_static = "1.4"
+
+# Cross-platform
+cfg-if = "1.0"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Console",
+] }
+
+[build-dependencies]
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"

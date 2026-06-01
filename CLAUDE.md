@@ -18,3 +18,14 @@ Electrobun 开发规范（Claude 版）
 - /package/src/cli：命令行工具源码
 - /package/src/extractor：自解压程序源码（基于 Zig 语言开发）
 - /package/src/native：各平台原生封装代码
+
+
+
+
+
+
+
+# [zig 转rust 计划](./doc/转rust分析.md)
+
+
+# [zig 转rust 对照表](./doc/zig-rust-cross-platform.md)
