@@ -138,6 +138,12 @@ bun install
 bun dev:clean
 ```
 
+> `bun install` 会自动触发 **postinstall** 脚本，下载当前平台的核心二进制文件（~48MB）
+> 到 `dist-{OS}-{ARCH}/` 目录。下载完成后，后续构建无需联网。
+>
+> 如果使用 `file:../../package` 本地链接开发，postinstall 不会运行，CLI 会在首次
+> 构建时自动下载并缓存这些文件。
+
 ### 开发工作流
 
 ```bash
