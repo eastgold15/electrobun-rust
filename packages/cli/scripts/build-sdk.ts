@@ -529,7 +529,7 @@ async function buildForNpm() {
 async function copyApiFiles() {
     // Copy TypeScript APIs from monorepo packages (core, browser to dist/api/)
     // 使用 fs.cpSync 以确保跨平台一致性（cp -R 的语义在 Win/Unix 上不同）
-    const apiSrcDirs = ["src/core/bun", "src/core/browser", "src/core/shared"];
+    const apiSrcDirs = ["src/core/bun", "src/core/browser", "src/core/shared", "src/core/generated"];
     mkdirSync("dist/api", { recursive: true });
     for (const src of apiSrcDirs) {
         cpSync(src, join("dist/api", basename(src)), {
