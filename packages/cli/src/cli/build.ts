@@ -680,32 +680,52 @@ function printBuildLogs(logs: any[] | undefined | null) {
 }
 
 // ── tar.gz 打包（跨平台，Windows 用 7-Zip 避免映射盘问题） ────
-const SEVEN_ZIP = "C:\\Program Files\\7-Zip\\7z.exe";
+function find7z(): string {
+  const candidates = [
+    "C:\\Program Files\\7-Zip\\7z.exe",
+    "C:\\Program Files (x86)\\7-Zip\\7z.exe",
+    process.env["ProgramFiles"] + "\\7-Zip\\7z.exe",
+    process.env["ProgramFiles(x86)"] + "\\7-Zip\\7z.exe",
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  // 检查 PATH
+  const paths = (process.env["PATH"] || "").split(";");
+  for (const dir of paths) {
+    const p = join(dir.trim(), "7z.exe");
+    if (existsSync(p)) return p;
+  }
+  return "";
+}
+const _7z = find7z();
 
 function createTarGz(archivePath: string, cwd: string, entries: string[]) {
   debugLog("createTarGz 开始: archivePath=", archivePath, "cwd=", cwd, "entries=", entries);
-  debugLog("7z.exe 是否存在:", existsSync(SEVEN_ZIP));
+  debugLog("7z.exe 路径:", _7z || "(未找到)");
   debugLog("cwd 是否存在:", existsSync(cwd));
   for (const e of entries) {
     debugLog("entry 路径:", join(cwd, e), " 是否存在:", existsSync(join(cwd, e)));
   }
-  if (OS === "win") {
+  if (OS === "win" && _7z) {
     // 7-Zip 两遍：先 tar、再 gzip
     // 用 cmd /c cd /d 切换到目录（比 execSync cwd 更可靠，兼容映射网络盘 L:）
     const tarPath = archivePath.replace(/\.gz$/, "");
     const entriesArg = entries.map((e) => `"${e}"`).join(" ");
-    debugLog("7z tar 命令:", `cd /d "${cwd}" && "${SEVEN_ZIP}" a -ttar "${tarPath}" -bb0 -r ${entriesArg}`);
+    debugLog("7z tar 命令:", `cd /d "${cwd}" && "${_7z}" a -ttar "${tarPath}" -bb0 -r ${entriesArg}`);
     execSync(
-      `cd /d "${cwd}" && "${SEVEN_ZIP}" a -ttar "${tarPath}" -bb0 -r ${entriesArg}`,
+      `cd /d "${cwd}" && "${_7z}" a -ttar "${tarPath}" -bb0 -r ${entriesArg}`,
       { stdio: "inherit" },
     );
     debugLog("中间 tar 文件:", tarPath, " 是否存在:", existsSync(tarPath));
     execSync(
-      `cd /d "${cwd}" && "${SEVEN_ZIP}" a -tgzip "${archivePath}" -bb0 "${tarPath}"`,
+      `cd /d "${cwd}" && "${_7z}" a -tgzip "${archivePath}" -bb0 "${tarPath}"`,
       { stdio: "inherit" },
     );
     try { unlinkSync(tarPath); } catch { /* ignore */ }
   } else {
+    // 回退系统 tar（macOS/Linux 默认有，Windows 也可能有 via Git Bash）
+    debugLog("使用系统 tar 命令");
     execSync(`tar -czf "${archivePath}" ${entries.map((e) => `"${e}"`).join(" ")}`, {
       cwd, stdio: "inherit",
     });
@@ -716,11 +736,18 @@ function createZip(zipPath: string, sourceDir: string) {
   debugLog("createZip: zipPath=", zipPath, "sourceDir=", sourceDir);
   debugLog("sourceDir 存在:", existsSync(sourceDir));
   debugLog("sourceDir 内容:", existsSync(sourceDir) ? readdirSync(sourceDir).slice(0, 10) : "N/A");
-  // 7-Zip 直接打 zip（cd /d 确保映射盘正常）
-  execSync(
-    `cd /d "${sourceDir}" && "${SEVEN_ZIP}" a -tzip "${zipPath}" -bb0 -r ".\\*"`,
-    { stdio: "inherit" },
-  );
+  if (_7z) {
+    execSync(
+      `cd /d "${sourceDir}" && "${_7z}" a -tzip "${zipPath}" -bb0 -r ".\\*"`,
+      { stdio: "inherit" },
+    );
+  } else {
+    // 回退 PowerShell
+    execSync(
+      `powershell -NoProfile -Command "Compress-Archive -Path '${sourceDir}\\*' -DestinationPath '${zipPath}' -Force"`,
+      { stdio: "inherit", timeout: 120000 },
+    );
+  }
 }
 
 // ── Foreground takeover ────────────────────────────────────────
