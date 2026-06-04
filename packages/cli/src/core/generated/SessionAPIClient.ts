@@ -15,6 +15,7 @@ export interface SessionAPI {
 
 // FFI symbols for SessionAPI
 const SYMBOLS = {
+  electrobun_init_core: { args: [], returns: FFIType.bool },
   electrobun_session_api_get_cookies: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_session_api_set_cookie: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_session_api_remove_cookie: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
@@ -30,6 +31,8 @@ export class SessionClient {
     const path = dllPath ?? this.findDll();
     this.lib = dlopen(path, SYMBOLS);
     this.initialized = true;
+    // 首次加载时自动初始化 core 实例
+    try { if (typeof this.lib.symbols.electrobun_init_core === 'function') this.lib.symbols.electrobun_init_core(); } catch {}
   }
 
   private findDll(): string {

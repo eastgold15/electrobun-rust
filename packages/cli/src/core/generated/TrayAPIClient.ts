@@ -18,6 +18,7 @@ export interface TrayAPI {
 
 // FFI symbols for TrayAPI
 const SYMBOLS = {
+  electrobun_init_core: { args: [], returns: FFIType.bool },
   electrobun_tray_api_create_tray: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_tray_api_destroy_tray: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_tray_api_set_tray_image: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
@@ -36,6 +37,8 @@ export class TrayClient {
     const path = dllPath ?? this.findDll();
     this.lib = dlopen(path, SYMBOLS);
     this.initialized = true;
+    // 首次加载时自动初始化 core 实例
+    try { if (typeof this.lib.symbols.electrobun_init_core === 'function') this.lib.symbols.electrobun_init_core(); } catch {}
   }
 
   private findDll(): string {

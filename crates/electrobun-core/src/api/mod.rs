@@ -880,3 +880,72 @@ impl WgpuAPI for ElectrobunApp {
         wgpu_hub::destroy(handle)
     }
 }
+
+// ============================================================================
+// Core 自动初始化
+// ============================================================================
+
+/// TS 端 dlopen 后调用此函数来初始化 core 实例 + 注册所有 trait。
+/// launcher 不负责初始化 DLL，所以需要在 TS 侧手动调用。
+///
+/// 用法（TS）：
+/// ```ts
+/// const { coreAPI } = await import("./generated/CoreAPIClient");
+/// coreAPI.call("electrobun_init_core", {});
+/// ```
+#[no_mangle]
+pub unsafe extern "C" fn electrobun_init_core() -> bool {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+    let mut ok = false;
+    INIT.call_once(|| {
+        // 创建全局 ElectrobunApp 实例
+        let app = ElectrobunApp;
+        let app_ref: &'static ElectrobunApp = Box::leak(Box::new(app));
+
+        // 注册到所有 #[eden_ipc] trait 的实例变量
+        // 每个 _init 函数接收 *mut dyn Trait（fat pointer）
+        // 通过 &app_ref as &dyn Trait 构造 fat pointer 再转裸指针
+        unsafe {
+            extern "C" {
+                fn WINDOWAPI_INSTANCE_init(instance: *mut dyn WindowAPI);
+                fn COREAPI_INSTANCE_init(instance: *mut dyn CoreAPI);
+                fn APPAPI_INSTANCE_init(instance: *mut dyn AppAPI);
+                fn WEBVIEWAPI_INSTANCE_init(instance: *mut dyn WebViewAPI);
+                fn TRAYAPI_INSTANCE_init(instance: *mut dyn TrayAPI);
+                fn DIALOGAPI_INSTANCE_init(instance: *mut dyn DialogAPI);
+                fn CLIPBOARDAPI_INSTANCE_init(instance: *mut dyn ClipboardAPI);
+                fn SESSIONAPI_INSTANCE_init(instance: *mut dyn SessionAPI);
+                fn SHORTCUTSAPI_INSTANCE_init(instance: *mut dyn ShortcutsAPI);
+                fn DISPLAYAPI_INSTANCE_init(instance: *mut dyn DisplayAPI);
+                fn WGPUAPI_INSTANCE_init(instance: *mut dyn WgpuAPI);
+            }
+            // 辅助宏：将 app_ref 转为 *mut dyn $trait 并调用对应 _init
+            macro_rules! init_one {
+                ($trait_name:ident, $init_fn:ident) => {
+                    let ptr: *mut dyn $trait_name = {
+                        let r: &dyn $trait_name = &*app_ref;
+                        std::mem::transmute::<&dyn $trait_name, *mut dyn $trait_name>(r)
+                    };
+                    $init_fn(ptr);
+                };
+            }
+            init_one!(WindowAPI, WINDOWAPI_INSTANCE_init);
+            init_one!(CoreAPI, COREAPI_INSTANCE_init);
+            init_one!(AppAPI, APPAPI_INSTANCE_init);
+            init_one!(WebViewAPI, WEBVIEWAPI_INSTANCE_init);
+            init_one!(TrayAPI, TRAYAPI_INSTANCE_init);
+            init_one!(DialogAPI, DIALOGAPI_INSTANCE_init);
+            init_one!(ClipboardAPI, CLIPBOARDAPI_INSTANCE_init);
+            init_one!(SessionAPI, SESSIONAPI_INSTANCE_init);
+            init_one!(ShortcutsAPI, SHORTCUTSAPI_INSTANCE_init);
+            init_one!(DisplayAPI, DISPLAYAPI_INSTANCE_init);
+            init_one!(WgpuAPI, WGPUAPI_INSTANCE_init);
+        }
+        // 初始化 winit 事件循环（必须在创建窗口前调用）
+        crate::window::init_event_loop();
+
+        ok = true;
+    });
+    ok
+}

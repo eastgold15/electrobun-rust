@@ -16,6 +16,7 @@ export interface AppAPI {
 
 // FFI symbols for AppAPI
 const SYMBOLS = {
+  electrobun_init_core: { args: [], returns: FFIType.bool },
   electrobun_app_api_get_app_name: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_app_api_get_app_version: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_app_api_get_app_data_path: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
@@ -32,6 +33,8 @@ export class AppClient {
     const path = dllPath ?? this.findDll();
     this.lib = dlopen(path, SYMBOLS);
     this.initialized = true;
+    // 首次加载时自动初始化 core 实例
+    try { if (typeof this.lib.symbols.electrobun_init_core === 'function') this.lib.symbols.electrobun_init_core(); } catch {}
   }
 
   private findDll(): string {

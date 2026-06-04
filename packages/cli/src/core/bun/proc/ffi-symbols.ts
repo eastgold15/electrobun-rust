@@ -2,6 +2,7 @@
 import { FFIType } from "bun:ffi";
 
 export const CORE_SYMBOLS = {
+  electrobun_init_core: { args: [], returns: FFIType.bool },
   electrobun_core_last_error: { args: [], returns: FFIType.cstring },
   electrobun_free_core_string: { args: [FFIType.ptr], returns: FFIType.void },
   electrobun_pop_next_queued_host_message: {

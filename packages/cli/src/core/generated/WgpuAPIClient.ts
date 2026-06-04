@@ -15,6 +15,7 @@ export interface WgpuAPI {
 
 // FFI symbols for WgpuAPI
 const SYMBOLS = {
+  electrobun_init_core: { args: [], returns: FFIType.bool },
   electrobun_wgpu_api_request_adapter: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_wgpu_api_request_device: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_wgpu_api_create_surface: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
@@ -30,6 +31,8 @@ export class WgpuClient {
     const path = dllPath ?? this.findDll();
     this.lib = dlopen(path, SYMBOLS);
     this.initialized = true;
+    // 首次加载时自动初始化 core 实例
+    try { if (typeof this.lib.symbols.electrobun_init_core === 'function') this.lib.symbols.electrobun_init_core(); } catch {}
   }
 
   private findDll(): string {

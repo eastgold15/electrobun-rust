@@ -161,6 +161,7 @@ pub fn generate_ts_client(
     // 生成 FFI 符号定义
     ts.push_str(&format!("// FFI symbols for {}\n", trait_str));
     ts.push_str("const SYMBOLS = {\n");
+    ts.push_str("  electrobun_init_core: { args: [], returns: FFIType.bool },\n");
     for ffi_name in ffi_names {
         ts.push_str(&format!("  {}: {{ args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr }},\n", ffi_name));
     }
@@ -177,6 +178,8 @@ pub fn generate_ts_client(
     ts.push_str("    const path = dllPath ?? this.findDll();\n");
     ts.push_str("    this.lib = dlopen(path, SYMBOLS);\n");
     ts.push_str("    this.initialized = true;\n");
+    ts.push_str("    // 首次加载时自动初始化 core 实例\n");
+    ts.push_str("    try { if (typeof this.lib.symbols.electrobun_init_core === 'function') this.lib.symbols.electrobun_init_core(); } catch {}\n");
     ts.push_str("  }\n\n");
 
     ts.push_str("  private findDll(): string {\n");

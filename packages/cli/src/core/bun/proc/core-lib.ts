@@ -66,9 +66,17 @@ const core = (() => {
         : `libelectrobun_core.${suffix}`
     );
     console.log("[CORE] Loading:", corePath);
-    return dlopen(corePath, {
+    const lib = dlopen(corePath, {
       ...CORE_SYMBOLS,
     });
+    // 自动初始化 core（注册 ElectrobunApp 实例到所有 #[eden_ipc] trait）
+    try {
+      const inited = lib.symbols.electrobun_init_core();
+      console.log("[CORE] Initialized:", inited);
+    } catch (e) {
+      console.warn("[CORE] Auto-init failed (non-fatal):", e);
+    }
+    return lib;
   } catch {
     return null;
   }

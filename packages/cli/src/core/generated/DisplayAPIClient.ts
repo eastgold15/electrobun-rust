@@ -13,6 +13,7 @@ export interface DisplayAPI {
 
 // FFI symbols for DisplayAPI
 const SYMBOLS = {
+  electrobun_init_core: { args: [], returns: FFIType.bool },
   electrobun_display_api_get_primary_display: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_display_api_get_all_displays: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_display_api_get_cursor_screen_point: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
@@ -26,6 +27,8 @@ export class DisplayClient {
     const path = dllPath ?? this.findDll();
     this.lib = dlopen(path, SYMBOLS);
     this.initialized = true;
+    // 首次加载时自动初始化 core 实例
+    try { if (typeof this.lib.symbols.electrobun_init_core === 'function') this.lib.symbols.electrobun_init_core(); } catch {}
   }
 
   private findDll(): string {

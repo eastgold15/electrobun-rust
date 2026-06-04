@@ -13,6 +13,7 @@ export interface DialogAPI {
 
 // FFI symbols for DialogAPI
 const SYMBOLS = {
+  electrobun_init_core: { args: [], returns: FFIType.bool },
   electrobun_dialog_api_open_file_dialog: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_dialog_api_show_message_box: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_dialog_api_move_to_trash: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
@@ -26,6 +27,8 @@ export class DialogClient {
     const path = dllPath ?? this.findDll();
     this.lib = dlopen(path, SYMBOLS);
     this.initialized = true;
+    // 首次加载时自动初始化 core 实例
+    try { if (typeof this.lib.symbols.electrobun_init_core === 'function') this.lib.symbols.electrobun_init_core(); } catch {}
   }
 
   private findDll(): string {

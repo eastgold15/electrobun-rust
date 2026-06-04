@@ -36,6 +36,7 @@ export interface WebViewAPI {
 
 // FFI symbols for WebViewAPI
 const SYMBOLS = {
+  electrobun_init_core: { args: [], returns: FFIType.bool },
   electrobun_web_view_api_create_webview: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_close_webview: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_navigate: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
@@ -72,6 +73,8 @@ export class WebViewClient {
     const path = dllPath ?? this.findDll();
     this.lib = dlopen(path, SYMBOLS);
     this.initialized = true;
+    // 首次加载时自动初始化 core 实例
+    try { if (typeof this.lib.symbols.electrobun_init_core === 'function') this.lib.symbols.electrobun_init_core(); } catch {}
   }
 
   private findDll(): string {

@@ -30,6 +30,7 @@ export interface WindowAPI {
 
 // FFI symbols for WindowAPI
 const SYMBOLS = {
+  electrobun_init_core: { args: [], returns: FFIType.bool },
   electrobun_window_api_create_window: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_window_api_close_window: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_window_api_show_window: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
@@ -60,6 +61,8 @@ export class WindowClient {
     const path = dllPath ?? this.findDll();
     this.lib = dlopen(path, SYMBOLS);
     this.initialized = true;
+    // 首次加载时自动初始化 core 实例
+    try { if (typeof this.lib.symbols.electrobun_init_core === 'function') this.lib.symbols.electrobun_init_core(); } catch {}
   }
 
   private findDll(): string {
