@@ -1,0 +1,2 @@
+packages/cli/src/templates/embedded.ts filter=lfs diff=lfs merge=lfs -text
+packages/cli/src/templates/embedded.ts !text !filter !merge !diff

@@ -1,0 +1,16 @@
+max_width = 100
+tab_spaces = 4
+edition = "2021"
+
+# 导入格式
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+
+# 匹配项间距
+match_block_trailing_comma = true
+normalize_comments = true
+normalize_doc_attributes = true
+
+# 格式风格
+newline_style = "Auto"
+use_small_heuristics = "Default"

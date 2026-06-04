@@ -1,0 +1,18 @@
+{
+	"name": "electrobun-photo-booth",
+	"version": "1.0.0",
+	"description": "A photo booth app demonstrating getUserMedia with Electrobun",
+	"scripts": {
+		"start": "electrobun dev",
+		"dev": "electrobun dev --watch",
+		"build:canary": "electrobun build --env=canary",
+		"typecheck": "bunx tsc --noEmit"
+	},
+	"dependencies": {
+		"@pori15/electrobun-rust": "file:../../packages/cli"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5.7.2"
+	}
+}

@@ -1,0 +1,71 @@
+[workspace]
+members = [
+    "crates/electrobun-core",
+    "crates/electrobun-extractor",
+    "crates/electrobun-launcher",
+    "crates/electrobun-build-tools",
+    "crates/electrobun-macros",
+]
+resolver = "2"
+
+[profile.release]
+strip = true
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+opt-level = 3
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/eastgold15/electrobun-rust"
+
+[workspace.lints.clippy]
+
+# 安全相关 — 先 warn 再逐步收紧
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+
+# 代码质量
+large_enum_variant = "warn"
+missing_errors_doc = "warn"
+enum_glob_use = "warn"
+manual_let_else = "warn"
+
+# 性能
+large_stack_arrays = "warn"
+needless_pass_by_value = "warn"
+
+# 阻止常见错误
+dbg_macro = "deny"
+todo = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+
+# 工程风格 — 保持开放
+wildcard_imports = "allow"
+module_name_repetitions = "allow"
+too_many_arguments = "allow"
+cast_lossless = "allow"
+cast_possible_truncation = "allow"
+
+[workspace.dependencies]
+winit = "0.30"
+wry = "0.55.1"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2.0.18"
+lazy_static = "1"
+aes-gcm = "0.10"
+base64 = "0.22"
+rand = "0.10.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

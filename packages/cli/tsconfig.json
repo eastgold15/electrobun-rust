@@ -1,0 +1,43 @@
+{
+    "compilerOptions": {
+        // Enable latest features
+        "composite": true,
+        "lib": [
+            "ESNext",
+            "DOM"
+        ],
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleDetection": "force",
+        "jsx": "react-jsx",
+        "allowJs": true,
+        "resolveJsonModule": true,
+        "types": [
+            "bun"
+        ],
+        // Bundler mode
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "verbatimModuleSyntax": true,
+        "noEmit": true,
+        // Best practices
+        "strict": true,
+        "skipLibCheck": true,
+        "noFallthroughCasesInSwitch": true,
+        // 宽松检查：允许未使用的导入和参数（生成代码不可避免）
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "noUncheckedIndexedAccess": true
+    },
+    "include": [
+        "src/**/*",
+        "src/**/.generated/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "vendors",
+        "build",
+        "src/tests",
+    ]
+}

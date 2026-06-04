@@ -1,0 +1,20 @@
+[package]
+name = "electrobun-extractor"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "extractor"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+zstd = "0.13"
+memchr = "2.5"
+base64 = "0.22.1"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

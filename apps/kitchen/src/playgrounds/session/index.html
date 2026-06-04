@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session & Partition Playground</title>
+    <script src="views://playgrounds/session/index.js"></script>
+    <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      padding: 20px;
+      margin: 0;
+      font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #eee;
+      background: #1a1a2e;
+    }
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
+    h1 {
+      margin: 0 0 5px 0;
+      font-size: 24px;
+      color: #fff;
+    }
+    .subtitle {
+      margin: 0;
+      font-size: 14px;
+      color: #888;
+    }
+    .done-btn {
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a2e;
+      cursor: pointer;
+      background: #4ade80;
+      border: none;
+      border-radius: 6px;
+    }
+    .done-btn:hover {
+      background: #22c55e;
+    }
+    h2 {
+      margin: 15px 0 10px 0;
+      font-size: 14px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .section {
+      padding: 15px;
+      margin-bottom: 15px;
+      background: #252540;
+      border-radius: 8px;
+    }
+    .info {
+      padding: 12px;
+      margin-bottom: 15px;
+      font-size: 13px;
+      color: #aaa;
+      background: #2a2a4a;
+      border-radius: 6px;
+    }
+    .info code {
+      padding: 2px 6px;
+      color: #a5b4fc;
+      background: #1a1a2e;
+      border-radius: 3px;
+    }
+    .webview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .webview-container {
+      padding: 10px;
+      background: #1a1a2e;
+      border-radius: 6px;
+    }
+    .webview-label {
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: #888;
+    }
+    .webview-label code {
+      color: #a5b4fc;
+    }
+    electrobun-webview {
+      width: 100%;
+      height: 150px;
+      border: 2px solid #3a3a5a;
+      border-radius: 4px;
+    }
+    .match-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 6px;
+      border-radius: 50%;
+    }
+    .match-default {
+      background: #3b82f6;
+    }
+    .match-test1 {
+      background: #22c55e;
+    }
+    .match-test2 {
+      background: #f59e0b;
+    }
+    .match-temp {
+      background: #ec4899;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div>
+        <h1>Session & Partition Playground</h1>
+        <p class="subtitle">
+          Test webview partitions and session isolation with localStorage
+        </p>
+      </div>
+      <button id="doneBtn" class="done-btn">Done</button>
+    </div>
+
+    <div class="section">
+      <h2>How It Works</h2>
+      <div class="info">
+        <p>
+          Each webview below has a counter stored in
+          <strong>localStorage</strong>.
+        </p>
+        <p>
+          Webviews with the <strong>same partition</strong> share localStorage
+          and will show the same counter value.
+        </p>
+        <p>
+          Webviews with <strong>different partitions</strong> have isolated
+          storage and independent counters.
+        </p>
+        <p style="margin-top: 8px;">
+          <strong>Try it:</strong>
+          Click +/- in one webview and watch which others update!
+        </p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>
+        <span class="match-indicator match-default"></span>Default Partition
+        (Shared)
+      </h2>
+      <p style="font-size: 13px; color: #888; margin-bottom: 10px;">
+        Both use <code>partition=""</code> - counters should stay in sync
+      </p>
+      <div class="webview-grid">
+        <div class="webview-container">
+          <div class="webview-label">Webview A - <code>partition=""</code></div>
+          <electrobun-webview
+            id="wv-a"
+            src="views://playgrounds/session/counter.html"
+            renderer="cef"
+            partition=""
+          ></electrobun-webview>
+        </div>
+        <div class="webview-container">
+          <div class="webview-label">Webview B - <code>partition=""</code></div>
+          <electrobun-webview
+            id="wv-b"
+            src="views://playgrounds/session/counter.html"
+            renderer="cef"
+            partition=""
+          ></electrobun-webview>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>
+        <span class="match-indicator match-test1"></span>Persistent Partition:
+        test1 (Shared)
+      </h2>
+      <p style="font-size: 13px; color: #888; margin-bottom: 10px;">
+        Both use <code>partition="persist:test1"</code> - counters should stay
+        in sync
+      </p>
+      <div class="webview-grid">
+        <div class="webview-container">
+          <div class="webview-label">
+            Webview C - <code>partition="persist:test1"</code>
+          </div>
+          <electrobun-webview
+            id="wv-c"
+            src="views://playgrounds/session/counter.html"
+            renderer="cef"
+            partition="persist:test1"
+          ></electrobun-webview>
+        </div>
+        <div class="webview-container">
+          <div class="webview-label">
+            Webview D - <code>partition="persist:test1"</code>
+          </div>
+          <electrobun-webview
+            id="wv-d"
+            src="views://playgrounds/session/counter.html"
+            renderer="cef"
+            partition="persist:test1"
+          ></electrobun-webview>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Different Partitions (Isolated)</h2>
+      <p style="font-size: 13px; color: #888; margin-bottom: 10px;">
+        Different partitions - each has its own independent counter
+      </p>
+      <div class="webview-grid">
+        <div class="webview-container">
+          <div class="webview-label">
+            <span class="match-indicator match-test2"></span>Webview E -
+            <code>partition="persist:test2"</code>
+          </div>
+          <electrobun-webview
+            id="wv-e"
+            src="views://playgrounds/session/counter.html"
+            renderer="cef"
+            partition="persist:test2"
+          ></electrobun-webview>
+        </div>
+        <div class="webview-container">
+          <div class="webview-label">
+            <span class="match-indicator match-temp"></span>Webview F -
+            <code>partition="temp:session1"</code>
+          </div>
+          <electrobun-webview
+            id="wv-f"
+            src="views://playgrounds/session/counter.html"
+            renderer="cef"
+            partition="temp:session1"
+          ></electrobun-webview>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

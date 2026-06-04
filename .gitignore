@@ -1,0 +1,16 @@
+node_modules/
+target/
+*dist/
+**.exe
+Cargo.lock
+*.obj
+**/dist-win-x64/**
+
+vendors/
+# cli 的 vendors 也是二进制依赖，不进入版本控制
+packages/electrobun-rust/cli/vendors/**
+*.bat
+packages/electrobun-rust/core/src/bun/preload/.generated/compiled.ts
+packages/cli/src/templates/embedded.ts
+.turbo/
+*.tsbuildinfo

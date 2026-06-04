@@ -1,0 +1,20 @@
+{
+	"name": "electrobun-webgpu-babylon",
+	"version": "1.0.0",
+	"type": "module",
+	"description": "A Babylon.js WebGPU platformer starter",
+	"scripts": {
+		"start": "electrobun dev",
+		"dev": "electrobun dev --watch",
+		"build:canary": "electrobun build --env=canary",
+		"typecheck": "bunx tsc --noEmit"
+	},
+	"dependencies": {
+		"@pori15/electrobun-rust": "file:../../packages/cli",
+		"@babylonjs/core": "^7.45.0"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5.7.2"
+	}
+}

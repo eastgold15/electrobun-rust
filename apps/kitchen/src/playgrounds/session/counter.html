@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+    * {
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: -apple-system, sans-serif;
+      background: #f0f0f0;
+    }
+    .counter {
+      font-size: 48px;
+      font-weight: bold;
+      color: #333;
+    }
+    .buttons {
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      width: 50px;
+      height: 40px;
+      font-size: 24px;
+      color: white;
+      cursor: pointer;
+      background: #3b82f6;
+      border: none;
+      border-radius: 6px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    button:active {
+      transform: scale(0.95);
+    }
+    .reset {
+      width: auto;
+      height: 30px;
+      padding: 0 12px;
+      font-size: 12px;
+      background: #6b7280;
+    }
+    .info {
+      font-size: 11px;
+      color: #888;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="counter" id="count">0</div>
+    <div class="buttons">
+      <button id="decBtn">-</button>
+      <button id="incBtn">+</button>
+    </div>
+    <button class="reset" id="resetBtn">Reset</button>
+    <div class="info">localStorage counter</div>
+    <script>
+    "use strict";
+    const KEY = "partition-test-counter";
+
+    function getCount() {
+      return Number.parseInt(localStorage.getItem(KEY) || "0", 10);
+    }
+
+    function setCount(val) {
+      localStorage.setItem(KEY, String(val));
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+      document.getElementById("count").textContent = getCount();
+    }
+
+    document
+      .getElementById("incBtn")
+      .addEventListener("click", () => setCount(getCount() + 1));
+    document
+      .getElementById("decBtn")
+      .addEventListener("click", () => setCount(getCount() - 1));
+    document
+      .getElementById("resetBtn")
+      .addEventListener("click", () => setCount(0));
+
+    // Listen for storage events from other tabs/webviews with same partition
+    window.addEventListener("storage", (e) => {
+      if (e.key === KEY) {
+        updateDisplay();
+      }
+    });
+
+    // Poll for changes (storage event doesn't fire in same browsing context)
+    setInterval(updateDisplay, 500);
+
+    updateDisplay();
+    </script>
+  </body>
+</html>

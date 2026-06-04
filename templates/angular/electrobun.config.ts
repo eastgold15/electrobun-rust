@@ -1,0 +1,22 @@
+import type { ElectrobunConfig } from "@pori15/electrobun-rust";
+
+export default {
+	app: {
+		name: "angular-app",
+		identifier: "angularapp.electrobun.dev",
+		version: "0.0.1",
+	},
+	build: {
+		copy: {
+			"dist/index.html": "views/mainview/index.html",
+			"dist/assets": "views/mainview/assets",
+		},
+		watchIgnore: ["dist/**"],
+		mac: {
+		},
+		linux: {
+		},
+		win: {
+		},
+	},
+} satisfies ElectrobunConfig;

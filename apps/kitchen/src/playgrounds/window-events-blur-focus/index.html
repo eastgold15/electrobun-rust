@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+    * {
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: #eee;
+      background: #1a1a2e;
+    }
+    h2 {
+      margin-bottom: 20px;
+      color: #fff;
+    }
+    .status-section {
+      margin-top: auto;
+    }
+    .status-item {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #333;
+    }
+    .status-item:last-child {
+      border-bottom: none;
+    }
+    .indicator {
+      width: 12px;
+      height: 12px;
+      background: #444;
+      border-radius: 50%;
+    }
+    .indicator.detected {
+      background: #4ade80;
+    }
+    .status-text {
+      color: #888;
+    }
+    .status-text.detected {
+      color: #4ade80;
+    }
+    .done-message {
+      display: none;
+      padding: 15px;
+      margin-top: 15px;
+      text-align: center;
+      background: #166534;
+      border-radius: 8px;
+    }
+    .done-message.show {
+      display: block;
+    }
+    button {
+      padding: 10px 20px;
+      margin-top: 15px;
+      font-size: 14px;
+      color: white;
+      cursor: pointer;
+      background: #3b82f6;
+      border: none;
+      border-radius: 6px;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    </style>
+  </head>
+  <body>
+    <h2>Window Blur & Focus Events Detection</h2>
+
+    <div class="status-section">
+      <div class="status-item">
+        <div class="indicator" id="blur-indicator"></div>
+        <span class="status-text" id="blur-status"
+          >Blur: Focus another window...</span
+        >
+      </div>
+      <div class="status-item">
+        <div class="indicator" id="focus-indicator"></div>
+        <span class="status-text" id="focus-status"
+          >Focus: Focus this window...</span
+        >
+      </div>
+    </div>
+
+    <div class="done-message" id="done-message">
+      Both events detected! Close the window when done.
+    </div>
+
+    <button id="closeBtn">Close Window</button>
+    <script src="index.js"></script>
+  </body>
+</html>

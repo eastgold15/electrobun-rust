@@ -1,0 +1,17 @@
+[package]
+name = "electrobun-launcher"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "launcher"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

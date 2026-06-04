@@ -1,0 +1,25 @@
+{
+    "name": "electrobun-rust-monorepo",
+    "private": true,
+    "type": "module",
+    "packageManager": "bun@1.3.14",
+    "workspaces": [
+        "packages/*",
+        "apps/*"
+    ],
+    "scripts": {
+        "rust:build": "cargo build --workspace",
+        "rust:build:release": "cargo build --workspace --release",
+        "cli:build": "cd packages/cli && bun scripts/build-sdk.ts",
+        "cli:build:release": "cd packages/cli && bun scripts/build-sdk.ts --release",
+        "templates:build:helow-world": "cd templates/hello-world && bun install && bun run build'",
+        "kitchen:dev": "cd apps/kitchen && bun dev",
+        "typecheck": "cd packages/cli && bunx tsc --noEmit",
+        "typecheck:all": "cd packages/cli && bunx tsc --noEmit && cd ../../apps/kitchen && bunx tsc --noEmit",
+        "test": "cd packages/cli && bun test src/core/shared src/core/bun"
+    },
+    "devDependencies": {
+        "typescript": "^6.0.3",
+        "@types/bun": "^1.3.14"
+    }
+}

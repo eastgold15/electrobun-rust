@@ -1,0 +1,21 @@
+{
+    "name": "electrobun-hello-world",
+    "version": "1.0.0",
+    "description": "A simple Electrobun app showcasing core features",
+    "scripts": {
+        "dev": "electrobun-rust dev",
+        "build": "electrobun-rust build",
+        "build:stable": "electrobun-rust build --env=stable --no-compress",
+        "typecheck": "bunx tsc --noEmit"
+    },
+    "dependencies": {
+        "@pori15/electrobun-rust": "file:../../packages/cli"
+    },
+    "devDependencies": {
+        "@types/bun": "latest",
+        "typescript": "^6.0.3"
+    },
+    "trustedDependencies": [
+        "@pori15/electrobun-rust"
+    ]
+}

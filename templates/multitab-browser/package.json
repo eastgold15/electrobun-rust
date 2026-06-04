@@ -1,0 +1,19 @@
+{
+	"name": "multitab-browser",
+	"version": "0.0.1",
+	"description": "A multi-tab browser demo for Electrobun",
+	"type": "module",
+	"scripts": {
+		"start": "electrobun dev",
+		"dev": "electrobun dev --watch",
+		"build": "electrobun-rust build",
+		"typecheck": "bunx tsc --noEmit"
+	},
+	"dependencies": {
+		"@pori15/electrobun-rust": "file:../../packages/cli"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"typescript": "^5.7.2"
+	}
+}

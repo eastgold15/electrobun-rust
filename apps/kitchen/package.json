@@ -1,0 +1,21 @@
+{
+    "name": "kitchen",
+    "scripts": {
+        "start": "bun ../../packages/cli/bin/electrobun.ts run",
+        "dev": "bun ../../packages/cli/bin/electrobun.ts dev",
+        "build:canary": "cd ../../packages/cli && bun build:release && cd ../../apps/kitchen && bun ../../packages/cli/bin/electrobun.ts build --env=canary",
+        "build:stable": "cd ../../packages/cli && bun build:release && cd ../../apps/kitchen && bun ../../packages/cli/bin/electrobun.ts build --env=stable",
+        "typecheck": "bunx tsc --noEmit",
+        "lint": "ultracite check src/",
+        "lint:fix": "ultracite fix src/",
+        "format": "ultracite fix src/",
+        "format:check": "ultracite check src/"
+    },
+    "dependencies": {
+		 "@pori15/electrobun-rust": "workspace:*"
+    },
+    "devDependencies": {
+        "typescript": "^6.0.3",
+        "@types/bun": "latest"
+    }
+}
