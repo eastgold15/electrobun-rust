@@ -5,6 +5,7 @@ import {
   getCoreLastError,
   toCString,
 } from "./core-lib";
+import { gen } from "./generated-bridge";
 
 // Menu data reference system to avoid serialization overhead
 const menuDataRegistry = new Map<string, any>();
@@ -138,41 +139,38 @@ export const ffiImpl = {
       params.winId as any,
 
     setTitle: (params: { winId: number; title: string }) => {
-      core_.symbols.electrobun_set_window_title(
-        params.winId,
-        toCString(params.title)
-      );
+      gen.window.setTitle(params);
     },
 
     closeWindow: (params: { winId: number }) => {
-      core_.symbols.electrobun_close_window(params.winId);
+      gen.window.closeWindow(params);
     },
 
     showWindow: (params: { winId: number; activate?: boolean }) => {
-      core_.symbols.electrobun_show_window(params.winId);
+      gen.window.showWindow(params);
     },
 
     activateWindow: (params: { winId: number }) => {
-      core_.symbols.electrobun_activate_window(params.winId);
+      gen.window.showWindow({ winId: params.winId });
     },
 
     hideWindow: (params: { winId: number }) => {
-      core_.symbols.electrobun_hide_window(params.winId);
+      gen.window.hideWindow(params);
     },
 
     minimizeWindow: (params: { winId: number }) => {
-      core_.symbols.electrobun_minimize_window(params.winId);
+      gen.window.minimize(params);
     },
 
     restoreWindow: (params: { winId: number }) => {
-      core_.symbols.electrobun_restore_window(params.winId);
+      gen.window.restore(params);
     },
 
     isWindowMinimized: (params: { winId: number }): boolean =>
       core_.symbols.electrobun_is_window_minimized(params.winId),
 
     maximizeWindow: (params: { winId: number }) => {
-      core_.symbols.electrobun_maximize_window(params.winId);
+      gen.window.maximize(params);
     },
 
     unmaximizeWindow: (params: { winId: number }) => {
@@ -183,20 +181,14 @@ export const ffiImpl = {
       core_.symbols.electrobun_is_window_maximized(params.winId),
 
     setWindowFullScreen: (params: { winId: number; fullScreen: boolean }) => {
-      core_.symbols.electrobun_set_window_fullscreen(
-        params.winId,
-        params.fullScreen
-      );
+      gen.window.setFullscreen({ winId: params.winId, fullscreen: params.fullScreen });
     },
 
     isWindowFullScreen: (params: { winId: number }): boolean =>
       core_.symbols.electrobun_is_window_fullscreen(params.winId),
 
     setWindowAlwaysOnTop: (params: { winId: number; alwaysOnTop: boolean }) => {
-      core_.symbols.electrobun_set_window_always_on_top(
-        params.winId,
-        params.alwaysOnTop
-      );
+      gen.window.setAlwaysOnTop({ winId: params.winId, onTop: params.alwaysOnTop });
     },
 
     isWindowAlwaysOnTop: (params: { winId: number }): boolean =>
@@ -218,11 +210,7 @@ export const ffiImpl = {
       ),
 
     setWindowPosition: (params: { winId: number; x: number; y: number }) => {
-      core_.symbols.electrobun_set_window_position(
-        params.winId,
-        params.x,
-        params.y
-      );
+      gen.window.setPosition(params);
     },
 
     setWindowButtonPosition: (params: {
@@ -242,11 +230,7 @@ export const ffiImpl = {
       width: number;
       height: number;
     }) => {
-      core_.symbols.electrobun_set_window_size(
-        params.winId,
-        params.width,
-        params.height
-      );
+      gen.window.setSize(params);
     },
 
     setWindowFrame: (params: {
@@ -256,29 +240,13 @@ export const ffiImpl = {
       width?: number;
       height?: number;
     }) => {
-      core_.symbols.electrobun_set_window_frame(params.winId, false);
+      gen.window.setFrame({ winId: params.winId, frameless: false });
     },
 
     getWindowFrame: (params: {
       winId: number;
     }): { x: number; y: number; width: number; height: number } => {
-      const xBuf = new Float64Array(1),
-        yBuf = new Float64Array(1);
-      const widthBuf = new Float64Array(1),
-        heightBuf = new Float64Array(1);
-      core_.symbols.electrobun_get_window_frame(
-        params.winId,
-        ptr(xBuf),
-        ptr(yBuf),
-        ptr(widthBuf),
-        ptr(heightBuf)
-      );
-      return {
-        x: xBuf[0]!,
-        y: yBuf[0]!,
-        width: widthBuf[0]!,
-        height: heightBuf[0]!,
-      };
+      return gen.window.getBounds(params);
     },
 
     createWebview: (params: {
@@ -539,40 +507,30 @@ export const ffiImpl = {
       width?: number;
       height?: number;
     }): number => {
-      const trayId = core_.symbols.electrobun_create_tray(
-        toCString(params.image),
-        toCString(params.title)
-      );
-      if (!trayId) {
-        throw "Failed to create tray";
-      }
-      return trayId;
+      return gen.tray.createTray(params);
     },
-    showTray: (params: { id: number }): boolean =>
-      core_.symbols.electrobun_show_tray(params.id),
+    showTray: (params: { id: number }): boolean => {
+      gen.tray.show(params);
+      return true;
+    },
     hideTray: (params: { id: number }): void => {
-      core_.symbols.electrobun_hide_tray(params.id);
+      gen.tray.hide(params);
     },
     setTrayTitle: (params: { id: number; title: string }): void => {
-      core_.symbols.electrobun_set_tray_title(
-        params.id,
-        toCString(params.title)
-      );
+      gen.tray.setTitle(params);
     },
     setTrayImage: (params: { id: number; image: string }): void => {
-      core_.symbols.electrobun_set_tray_image(
-        params.id,
-        toCString(params.image)
-      );
+      gen.tray.setImage(params);
     },
     setTrayMenu: (params: { id: number; menuConfig: string }): void => {
+      // 宏生成的 TrayAPI 没有 setMenu，保持手写
       core_.symbols.electrobun_set_tray_menu(
         params.id,
         toCString(params.menuConfig)
       );
     },
     removeTray: (params: { id: number }): void => {
-      core_.symbols.electrobun_remove_tray(params.id);
+      gen.tray.remove(params);
     },
     getTrayBounds: (params: { id: number }): Rectangle => {
       const buf = new BigInt64Array(4);
