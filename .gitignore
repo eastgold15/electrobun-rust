@@ -11,6 +11,6 @@ vendors/
 packages/electrobun-rust/cli/vendors/**
 *.bat
 packages/electrobun-rust/core/src/bun/preload/.generated/compiled.ts
-packages/cli/src/templates/embedded.ts
+# packages/cli/src/templates/embedded.ts 已跟踪（523KB，历史大版本已清除）
 .turbo/
 *.tsbuildinfo
