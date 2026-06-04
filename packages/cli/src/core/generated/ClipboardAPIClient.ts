@@ -2,7 +2,7 @@
 // Do not edit manually
 
 import { dlopen, FFIType, CString } from "bun:ffi";
-import type { Window, WindowParams, WindowError, AppError, WebViewError, WebViewOptions, WebViewBounds, FileDialogOptions, FileDialogResult, MessageBoxResult, DialogError, TrayOptions, TrayError, ClipboardError, SessionError, ShortcutError, DisplayInfo, DisplayError, CoreError, WgpuAdapterOpts, WgpuDeviceOpts, WgpuSurfaceOpts, WgpuError, WindowBounds } from "../api/types";
+import type { Window, WindowParams, WindowError, AppError, WebViewError, WebViewOptions, WebViewBounds, FileDialogOptions, FileDialogResult, MessageBoxResult, DialogError, TrayOptions, TrayBounds, TrayError, ClipboardError, SessionError, ShortcutError, DisplayInfo, DisplayError, CoreError, WgpuAdapterOpts, WgpuDeviceOpts, WgpuSurfaceOpts, WgpuError, WindowBounds } from "../api/types";
 
 export interface ClipboardAPI {
   readText(): string | ClipboardError;

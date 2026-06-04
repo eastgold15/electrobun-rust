@@ -115,6 +115,14 @@ export interface TrayParams {
 /** 托盘选项（生成代码使用） */
 export type TrayOptions = TrayParams;
 
+/** 托盘边界 */
+export interface TrayBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * 托盘对象
  */

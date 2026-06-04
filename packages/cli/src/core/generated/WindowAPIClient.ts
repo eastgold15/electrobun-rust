@@ -2,7 +2,7 @@
 // Do not edit manually
 
 import { dlopen, FFIType, CString } from "bun:ffi";
-import type { Window, WindowParams, WindowError, AppError, WebViewError, WebViewOptions, WebViewBounds, FileDialogOptions, FileDialogResult, MessageBoxResult, DialogError, TrayOptions, TrayError, ClipboardError, SessionError, ShortcutError, DisplayInfo, DisplayError, CoreError, WgpuAdapterOpts, WgpuDeviceOpts, WgpuSurfaceOpts, WgpuError, WindowBounds } from "../api/types";
+import type { Window, WindowParams, WindowError, AppError, WebViewError, WebViewOptions, WebViewBounds, FileDialogOptions, FileDialogResult, MessageBoxResult, DialogError, TrayOptions, TrayBounds, TrayError, ClipboardError, SessionError, ShortcutError, DisplayInfo, DisplayError, CoreError, WgpuAdapterOpts, WgpuDeviceOpts, WgpuSurfaceOpts, WgpuError, WindowBounds } from "../api/types";
 
 export interface WindowAPI {
   createWindow(params: WindowParams): Window | WindowError;
@@ -20,6 +20,11 @@ export interface WindowAPI {
   setWindowAlwaysOnTop(windowId: number, onTop: boolean): void | WindowError;
   setWindowFrame(windowId: number, frameless: boolean): void | WindowError;
   getWindowBounds(windowId: number): WindowBounds | WindowError;
+  isMinimized(windowId: number): boolean | WindowError;
+  isMaximized(windowId: number): boolean | WindowError;
+  isFullscreen(windowId: number): boolean | WindowError;
+  isAlwaysOnTop(windowId: number): boolean | WindowError;
+  unmaximize(windowId: number): void | WindowError;
 }
 
 // FFI symbols for WindowAPI
@@ -39,6 +44,11 @@ const SYMBOLS = {
   electrobun_window_api_set_window_always_on_top: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_window_api_set_window_frame: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_window_api_get_window_bounds: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_window_api_is_minimized: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_window_api_is_maximized: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_window_api_is_fullscreen: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_window_api_is_always_on_top: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_window_api_unmaximize: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
 } as const;
 
 export class WindowClient {
@@ -126,6 +136,26 @@ export class WindowClient {
 
   getWindowBounds(windowId: number): WindowBounds | WindowError {
     return this.call<WindowBounds>("electrobun_window_api_get_window_bounds", { windowId });
+  }
+
+  isMinimized(windowId: number): boolean | WindowError {
+    return this.call<boolean>("electrobun_window_api_is_minimized", { windowId });
+  }
+
+  isMaximized(windowId: number): boolean | WindowError {
+    return this.call<boolean>("electrobun_window_api_is_maximized", { windowId });
+  }
+
+  isFullscreen(windowId: number): boolean | WindowError {
+    return this.call<boolean>("electrobun_window_api_is_fullscreen", { windowId });
+  }
+
+  isAlwaysOnTop(windowId: number): boolean | WindowError {
+    return this.call<boolean>("electrobun_window_api_is_always_on_top", { windowId });
+  }
+
+  unmaximize(windowId: number): void | WindowError {
+    return this.call<void>("electrobun_window_api_unmaximize", { windowId });
   }
 
 }

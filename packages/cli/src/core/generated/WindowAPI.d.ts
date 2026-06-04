@@ -17,4 +17,9 @@ export interface WindowAPI {
   setWindowAlwaysOnTop(windowId: number, onTop: boolean): void | WindowError;
   setWindowFrame(windowId: number, frameless: boolean): void | WindowError;
   getWindowBounds(windowId: number): WindowBounds | WindowError;
+  isMinimized(windowId: number): boolean | WindowError;
+  isMaximized(windowId: number): boolean | WindowError;
+  isFullscreen(windowId: number): boolean | WindowError;
+  isAlwaysOnTop(windowId: number): boolean | WindowError;
+  unmaximize(windowId: number): void | WindowError;
 }

@@ -113,6 +113,11 @@ pub trait WindowAPI {
     fn set_window_always_on_top(&self, window_id: u32, on_top: bool) -> Result<(), WindowError>;
     fn set_window_frame(&self, window_id: u32, frameless: bool) -> Result<(), WindowError>;
     fn get_window_bounds(&self, window_id: u32) -> Result<WindowBounds, WindowError>;
+    fn is_minimized(&self, window_id: u32) -> Result<bool, WindowError>;
+    fn is_maximized(&self, window_id: u32) -> Result<bool, WindowError>;
+    fn is_fullscreen(&self, window_id: u32) -> Result<bool, WindowError>;
+    fn is_always_on_top(&self, window_id: u32) -> Result<bool, WindowError>;
+    fn unmaximize(&self, window_id: u32) -> Result<(), WindowError>;
 }
 
 #[eden_ipc]
@@ -132,12 +137,27 @@ pub trait WebViewAPI {
     fn navigate(&self, webview_id: u32, url: String) -> Result<(), WebViewError>;
     fn navigate_back(&self, webview_id: u32) -> Result<(), WebViewError>;
     fn navigate_forward(&self, webview_id: u32) -> Result<(), WebViewError>;
+    fn can_go_back(&self, webview_id: u32) -> Result<bool, WebViewError>;
+    fn can_go_forward(&self, webview_id: u32) -> Result<bool, WebViewError>;
     fn reload(&self, webview_id: u32) -> Result<(), WebViewError>;
     fn load_html(&self, webview_id: u32, html: String) -> Result<(), WebViewError>;
     fn set_webview_bounds(&self, webview_id: u32, bounds: WebViewBounds) -> Result<(), WebViewError>;
     fn set_webview_visible(&self, webview_id: u32, visible: bool) -> Result<(), WebViewError>;
+    fn set_transparent(&self, webview_id: u32, transparent: bool) -> Result<(), WebViewError>;
+    fn set_passthrough(&self, webview_id: u32, passthrough: bool) -> Result<(), WebViewError>;
     fn resize(&self, webview_id: u32, width: f64, height: f64) -> Result<(), WebViewError>;
     fn send_message(&self, webview_id: u32, message: String) -> Result<(), WebViewError>;
+    fn evaluate_javascript(&self, webview_id: u32, js: String) -> Result<(), WebViewError>;
+    fn set_navigation_rules(&self, webview_id: u32, rules_json: String) -> Result<(), WebViewError>;
+    fn find_in_page(&self, webview_id: u32, search_text: String, forward: bool, match_case: bool) -> Result<(), WebViewError>;
+    fn stop_find(&self, webview_id: u32, clear_selection: bool) -> Result<(), WebViewError>;
+    fn open_devtools(&self, webview_id: u32) -> Result<(), WebViewError>;
+    fn close_devtools(&self, webview_id: u32) -> Result<(), WebViewError>;
+    fn set_page_zoom(&self, webview_id: u32, zoom_level: f64) -> Result<(), WebViewError>;
+    fn get_page_zoom(&self, webview_id: u32) -> Result<f64, WebViewError>;
+    fn load_html_content(&self, webview_id: u32, html: String) -> Result<(), WebViewError>;
+    fn update_preload_script(&self, webview_id: u32, script: String) -> Result<(), WebViewError>;
+    fn clear_transport(&self, webview_id: u32) -> Result<(), WebViewError>;
 }
 
 // ============================================================================
@@ -241,6 +261,30 @@ impl WindowAPI for ElectrobunApp {
             None => Err(WindowError { message: format!("Window {} not found", window_id) }),
         }
     }
+
+    fn is_minimized(&self, window_id: u32) -> Result<bool, WindowError> {
+        crate::window::is_window_minimized(window_id)
+            .ok_or_else(|| WindowError { message: format!("Window {} not found", window_id) })
+    }
+
+    fn is_maximized(&self, window_id: u32) -> Result<bool, WindowError> {
+        crate::window::is_window_maximized(window_id)
+            .ok_or_else(|| WindowError { message: format!("Window {} not found", window_id) })
+    }
+
+    fn is_fullscreen(&self, window_id: u32) -> Result<bool, WindowError> {
+        Ok(crate::window::is_window_fullscreen(window_id))
+    }
+
+    fn is_always_on_top(&self, window_id: u32) -> Result<bool, WindowError> {
+        crate::window::is_window_always_on_top(window_id)
+            .ok_or_else(|| WindowError { message: format!("Window {} not found", window_id) })
+    }
+
+    fn unmaximize(&self, window_id: u32) -> Result<(), WindowError> {
+        if crate::window::unmaximize_window(window_id) { Ok(()) }
+        else { Err(WindowError { message: format!("Window {} not found", window_id) }) }
+    }
 }
 
 impl AppAPI for ElectrobunApp {
@@ -336,6 +380,64 @@ impl WebViewAPI for ElectrobunApp {
 
     fn send_message(&self, webview_id: u32, message: String) -> Result<(), WebViewError> {
         if crate::webview::send_message_to_webview(webview_id, &message) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
+    }
+
+    fn can_go_back(&self, webview_id: u32) -> Result<bool, WebViewError> {
+        Ok(crate::webview::webview_can_go_back(webview_id))
+    }
+    fn can_go_forward(&self, webview_id: u32) -> Result<bool, WebViewError> {
+        Ok(crate::webview::webview_can_go_forward(webview_id))
+    }
+    fn set_transparent(&self, webview_id: u32, transparent: bool) -> Result<(), WebViewError> {
+        if crate::webview::set_webview_transparent(webview_id, transparent) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
+    }
+    fn set_passthrough(&self, webview_id: u32, passthrough: bool) -> Result<(), WebViewError> {
+        if crate::webview::webview_set_passthrough(webview_id, passthrough) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
+    }
+    fn evaluate_javascript(&self, webview_id: u32, js: String) -> Result<(), WebViewError> {
+        if crate::webview::evaluate_javascript(webview_id, &js) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} evaluate failed", webview_id) }) }
+    }
+    fn set_navigation_rules(&self, webview_id: u32, rules_json: String) -> Result<(), WebViewError> {
+        if crate::webview::set_navigation_rules(webview_id, &rules_json) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
+    }
+    fn find_in_page(&self, webview_id: u32, search_text: String, forward: bool, match_case: bool) -> Result<(), WebViewError> {
+        if crate::webview::find_in_page(webview_id, &search_text, forward, match_case) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
+    }
+    fn stop_find(&self, webview_id: u32, clear_selection: bool) -> Result<(), WebViewError> {
+        if crate::webview::stop_find(webview_id, clear_selection) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
+    }
+    fn open_devtools(&self, webview_id: u32) -> Result<(), WebViewError> {
+        if crate::webview::open_devtools(webview_id) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} devtools failed", webview_id) }) }
+    }
+    fn close_devtools(&self, webview_id: u32) -> Result<(), WebViewError> {
+        if crate::webview::close_devtools(webview_id) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} devtools failed", webview_id) }) }
+    }
+    fn set_page_zoom(&self, webview_id: u32, zoom_level: f64) -> Result<(), WebViewError> {
+        if crate::webview::set_page_zoom(webview_id, zoom_level) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
+    }
+    fn get_page_zoom(&self, webview_id: u32) -> Result<f64, WebViewError> {
+        Ok(crate::webview::get_page_zoom(webview_id))
+    }
+    fn load_html_content(&self, webview_id: u32, html: String) -> Result<(), WebViewError> {
+        if crate::webview::set_webview_html_content(webview_id, &html) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
+    }
+    fn update_preload_script(&self, webview_id: u32, script: String) -> Result<(), WebViewError> {
+        if crate::webview::update_preload_script(webview_id, &script) { Ok(()) }
+        else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
+    }
+    fn clear_transport(&self, webview_id: u32) -> Result<(), WebViewError> {
+        if crate::webview::clear_host_transport(webview_id) { Ok(()) }
         else { Err(WebViewError { message: format!("WebView {} not found", webview_id) }) }
     }
 }
@@ -445,6 +547,7 @@ pub trait TrayAPI {
     fn show_tray(&self, tray_id: u32) -> Result<(), TrayError>;
     fn hide_tray(&self, tray_id: u32) -> Result<(), TrayError>;
     fn set_tray_menu(&self, tray_id: u32, menu_json: String) -> Result<(), TrayError>;
+    fn get_tray_bounds(&self, tray_id: u32) -> Result<TrayBounds, TrayError>;
 }
 
 impl TrayAPI for ElectrobunApp {
@@ -477,6 +580,12 @@ impl TrayAPI for ElectrobunApp {
     fn set_tray_menu(&self, tray_id: u32, menu_json: String) -> Result<(), TrayError> {
         if crate::tray::set_tray_menu(tray_id, &menu_json) { Ok(()) }
         else { Err(TrayError { message: format!("Tray {} not found", tray_id) }) }
+    }
+    fn get_tray_bounds(&self, tray_id: u32) -> Result<TrayBounds, TrayError> {
+        match crate::tray::get_tray_bounds(tray_id) {
+            Some((x, y, w, h)) => Ok(TrayBounds { x, y, width: w, height: h }),
+            None => Err(TrayError { message: format!("Tray {} not found", tray_id) }),
+        }
     }
 }
 

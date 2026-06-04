@@ -113,10 +113,30 @@ function windowGetBounds(params: {
   winId: number;
 }): { x: number; y: number; width: number; height: number } {
   const result = windowAPI.getWindowBounds(params.winId);
-  if (result && typeof result === "object" && "type" in result) {
+  if (result && typeof result === "object" && "type" in (result as any)) {
     throw new Error(`getWindowBounds failed: ${(result as any).type}`);
   }
   return result as unknown as { x: number; y: number; width: number; height: number };
+}
+
+function windowIsMinimized(params: { winId: number }): boolean {
+  const r = windowAPI.isMinimized(params.winId);
+  return typeof r === "boolean" ? r : false;
+}
+function windowIsMaximized(params: { winId: number }): boolean {
+  const r = windowAPI.isMaximized(params.winId);
+  return typeof r === "boolean" ? r : false;
+}
+function windowIsFullscreen(params: { winId: number }): boolean {
+  const r = windowAPI.isFullscreen(params.winId);
+  return typeof r === "boolean" ? r : false;
+}
+function windowIsAlwaysOnTop(params: { winId: number }): boolean {
+  const r = windowAPI.isAlwaysOnTop(params.winId);
+  return typeof r === "boolean" ? r : false;
+}
+function windowUnmaximize(params: { winId: number }): void {
+  windowAPI.unmaximize(params.winId);
 }
 
 function windowSetFrame(params: { winId: number; frameless: boolean }): void {
@@ -185,6 +205,11 @@ export const gen = {
     setAlwaysOnTop: windowSetAlwaysOnTop,
     getBounds: windowGetBounds,
     setFrame: windowSetFrame,
+    isMinimized: windowIsMinimized,
+    isMaximized: windowIsMaximized,
+    isFullscreen: windowIsFullscreen,
+    isAlwaysOnTop: windowIsAlwaysOnTop,
+    unmaximize: windowUnmaximize,
   },
 
   /** @eden_ipc TrayAPI */

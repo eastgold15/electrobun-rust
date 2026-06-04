@@ -7,10 +7,25 @@ export interface WebViewAPI {
   navigate(webviewId: number, url: string): void | WebViewError;
   navigateBack(webviewId: number): void | WebViewError;
   navigateForward(webviewId: number): void | WebViewError;
+  canGoBack(webviewId: number): boolean | WebViewError;
+  canGoForward(webviewId: number): boolean | WebViewError;
   reload(webviewId: number): void | WebViewError;
   loadHtml(webviewId: number, html: string): void | WebViewError;
   setWebviewBounds(webviewId: number, bounds: WebViewBounds): void | WebViewError;
   setWebviewVisible(webviewId: number, visible: boolean): void | WebViewError;
+  setTransparent(webviewId: number, transparent: boolean): void | WebViewError;
+  setPassthrough(webviewId: number, passthrough: boolean): void | WebViewError;
   resize(webviewId: number, width: number, height: number): void | WebViewError;
   sendMessage(webviewId: number, message: string): void | WebViewError;
+  evaluateJavascript(webviewId: number, js: string): void | WebViewError;
+  setNavigationRules(webviewId: number, rulesJson: string): void | WebViewError;
+  findInPage(webviewId: number, searchText: string, forward: boolean, matchCase: boolean): void | WebViewError;
+  stopFind(webviewId: number, clearSelection: boolean): void | WebViewError;
+  openDevtools(webviewId: number): void | WebViewError;
+  closeDevtools(webviewId: number): void | WebViewError;
+  setPageZoom(webviewId: number, zoomLevel: number): void | WebViewError;
+  getPageZoom(webviewId: number): number | WebViewError;
+  loadHtmlContent(webviewId: number, html: string): void | WebViewError;
+  updatePreloadScript(webviewId: number, script: string): void | WebViewError;
+  clearTransport(webviewId: number): void | WebViewError;
 }

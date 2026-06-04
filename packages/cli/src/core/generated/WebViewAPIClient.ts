@@ -2,7 +2,7 @@
 // Do not edit manually
 
 import { dlopen, FFIType, CString } from "bun:ffi";
-import type { Window, WindowParams, WindowError, AppError, WebViewError, WebViewOptions, WebViewBounds, FileDialogOptions, FileDialogResult, MessageBoxResult, DialogError, TrayOptions, TrayError, ClipboardError, SessionError, ShortcutError, DisplayInfo, DisplayError, CoreError, WgpuAdapterOpts, WgpuDeviceOpts, WgpuSurfaceOpts, WgpuError, WindowBounds } from "../api/types";
+import type { Window, WindowParams, WindowError, AppError, WebViewError, WebViewOptions, WebViewBounds, FileDialogOptions, FileDialogResult, MessageBoxResult, DialogError, TrayOptions, TrayBounds, TrayError, ClipboardError, SessionError, ShortcutError, DisplayInfo, DisplayError, CoreError, WgpuAdapterOpts, WgpuDeviceOpts, WgpuSurfaceOpts, WgpuError, WindowBounds } from "../api/types";
 
 export interface WebViewAPI {
   createWebview(options: WebViewOptions): number | WebViewError;
@@ -10,12 +10,27 @@ export interface WebViewAPI {
   navigate(webviewId: number, url: string): void | WebViewError;
   navigateBack(webviewId: number): void | WebViewError;
   navigateForward(webviewId: number): void | WebViewError;
+  canGoBack(webviewId: number): boolean | WebViewError;
+  canGoForward(webviewId: number): boolean | WebViewError;
   reload(webviewId: number): void | WebViewError;
   loadHtml(webviewId: number, html: string): void | WebViewError;
   setWebviewBounds(webviewId: number, bounds: WebViewBounds): void | WebViewError;
   setWebviewVisible(webviewId: number, visible: boolean): void | WebViewError;
+  setTransparent(webviewId: number, transparent: boolean): void | WebViewError;
+  setPassthrough(webviewId: number, passthrough: boolean): void | WebViewError;
   resize(webviewId: number, width: number, height: number): void | WebViewError;
   sendMessage(webviewId: number, message: string): void | WebViewError;
+  evaluateJavascript(webviewId: number, js: string): void | WebViewError;
+  setNavigationRules(webviewId: number, rulesJson: string): void | WebViewError;
+  findInPage(webviewId: number, searchText: string, forward: boolean, matchCase: boolean): void | WebViewError;
+  stopFind(webviewId: number, clearSelection: boolean): void | WebViewError;
+  openDevtools(webviewId: number): void | WebViewError;
+  closeDevtools(webviewId: number): void | WebViewError;
+  setPageZoom(webviewId: number, zoomLevel: number): void | WebViewError;
+  getPageZoom(webviewId: number): number | WebViewError;
+  loadHtmlContent(webviewId: number, html: string): void | WebViewError;
+  updatePreloadScript(webviewId: number, script: string): void | WebViewError;
+  clearTransport(webviewId: number): void | WebViewError;
 }
 
 // FFI symbols for WebViewAPI
@@ -25,12 +40,27 @@ const SYMBOLS = {
   electrobun_web_view_api_navigate: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_navigate_back: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_navigate_forward: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_can_go_back: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_can_go_forward: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_reload: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_load_html: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_set_webview_bounds: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_set_webview_visible: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_set_transparent: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_set_passthrough: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_resize: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_web_view_api_send_message: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_evaluate_javascript: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_set_navigation_rules: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_find_in_page: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_stop_find: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_open_devtools: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_close_devtools: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_set_page_zoom: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_get_page_zoom: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_load_html_content: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_update_preload_script: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_web_view_api_clear_transport: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
 } as const;
 
 export class WebViewClient {
@@ -80,6 +110,14 @@ export class WebViewClient {
     return this.call<void>("electrobun_web_view_api_navigate_forward", { webviewId });
   }
 
+  canGoBack(webviewId: number): boolean | WebViewError {
+    return this.call<boolean>("electrobun_web_view_api_can_go_back", { webviewId });
+  }
+
+  canGoForward(webviewId: number): boolean | WebViewError {
+    return this.call<boolean>("electrobun_web_view_api_can_go_forward", { webviewId });
+  }
+
   reload(webviewId: number): void | WebViewError {
     return this.call<void>("electrobun_web_view_api_reload", { webviewId });
   }
@@ -96,12 +134,64 @@ export class WebViewClient {
     return this.call<void>("electrobun_web_view_api_set_webview_visible", { webviewId, visible });
   }
 
+  setTransparent(webviewId: number, transparent: boolean): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_set_transparent", { webviewId, transparent });
+  }
+
+  setPassthrough(webviewId: number, passthrough: boolean): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_set_passthrough", { webviewId, passthrough });
+  }
+
   resize(webviewId: number, width: number, height: number): void | WebViewError {
     return this.call<void>("electrobun_web_view_api_resize", { webviewId, width, height });
   }
 
   sendMessage(webviewId: number, message: string): void | WebViewError {
     return this.call<void>("electrobun_web_view_api_send_message", { webviewId, message });
+  }
+
+  evaluateJavascript(webviewId: number, js: string): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_evaluate_javascript", { webviewId, js });
+  }
+
+  setNavigationRules(webviewId: number, rulesJson: string): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_set_navigation_rules", { webviewId, rulesJson });
+  }
+
+  findInPage(webviewId: number, searchText: string, forward: boolean, matchCase: boolean): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_find_in_page", { webviewId, searchText, forward, matchCase });
+  }
+
+  stopFind(webviewId: number, clearSelection: boolean): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_stop_find", { webviewId, clearSelection });
+  }
+
+  openDevtools(webviewId: number): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_open_devtools", { webviewId });
+  }
+
+  closeDevtools(webviewId: number): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_close_devtools", { webviewId });
+  }
+
+  setPageZoom(webviewId: number, zoomLevel: number): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_set_page_zoom", { webviewId, zoomLevel });
+  }
+
+  getPageZoom(webviewId: number): number | WebViewError {
+    return this.call<number>("electrobun_web_view_api_get_page_zoom", { webviewId });
+  }
+
+  loadHtmlContent(webviewId: number, html: string): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_load_html_content", { webviewId, html });
+  }
+
+  updatePreloadScript(webviewId: number, script: string): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_update_preload_script", { webviewId, script });
+  }
+
+  clearTransport(webviewId: number): void | WebViewError {
+    return this.call<void>("electrobun_web_view_api_clear_transport", { webviewId });
   }
 
 }

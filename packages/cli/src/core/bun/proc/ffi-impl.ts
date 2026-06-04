@@ -167,32 +167,32 @@ export const ffiImpl = {
     },
 
     isWindowMinimized: (params: { winId: number }): boolean =>
-      core_.symbols.electrobun_is_window_minimized(params.winId),
+      gen.window.isMinimized(params),
 
     maximizeWindow: (params: { winId: number }) => {
       gen.window.maximize(params);
     },
 
     unmaximizeWindow: (params: { winId: number }) => {
-      core_.symbols.electrobun_unmaximize_window(params.winId);
+      gen.window.unmaximize(params);
     },
 
     isWindowMaximized: (params: { winId: number }): boolean =>
-      core_.symbols.electrobun_is_window_maximized(params.winId),
+      gen.window.isMaximized(params),
 
     setWindowFullScreen: (params: { winId: number; fullScreen: boolean }) => {
       gen.window.setFullscreen({ winId: params.winId, fullscreen: params.fullScreen });
     },
 
     isWindowFullScreen: (params: { winId: number }): boolean =>
-      core_.symbols.electrobun_is_window_fullscreen(params.winId),
+      gen.window.isFullscreen(params),
 
     setWindowAlwaysOnTop: (params: { winId: number; alwaysOnTop: boolean }) => {
       gen.window.setAlwaysOnTop({ winId: params.winId, onTop: params.alwaysOnTop });
     },
 
     isWindowAlwaysOnTop: (params: { winId: number }): boolean =>
-      core_.symbols.electrobun_is_window_always_on_top(params.winId),
+      gen.window.isAlwaysOnTop(params),
 
     setWindowVisibleOnAllWorkspaces: (params: {
       winId: number;

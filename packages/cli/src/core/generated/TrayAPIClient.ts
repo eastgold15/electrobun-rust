@@ -2,7 +2,7 @@
 // Do not edit manually
 
 import { dlopen, FFIType, CString } from "bun:ffi";
-import type { Window, WindowParams, WindowError, AppError, WebViewError, WebViewOptions, WebViewBounds, FileDialogOptions, FileDialogResult, MessageBoxResult, DialogError, TrayOptions, TrayError, ClipboardError, SessionError, ShortcutError, DisplayInfo, DisplayError, CoreError, WgpuAdapterOpts, WgpuDeviceOpts, WgpuSurfaceOpts, WgpuError, WindowBounds } from "../api/types";
+import type { Window, WindowParams, WindowError, AppError, WebViewError, WebViewOptions, WebViewBounds, FileDialogOptions, FileDialogResult, MessageBoxResult, DialogError, TrayOptions, TrayBounds, TrayError, ClipboardError, SessionError, ShortcutError, DisplayInfo, DisplayError, CoreError, WgpuAdapterOpts, WgpuDeviceOpts, WgpuSurfaceOpts, WgpuError, WindowBounds } from "../api/types";
 
 export interface TrayAPI {
   createTray(options: TrayOptions): number | TrayError;
@@ -12,6 +12,7 @@ export interface TrayAPI {
   showTray(trayId: number): void | TrayError;
   hideTray(trayId: number): void | TrayError;
   setTrayMenu(trayId: number, menuJson: string): void | TrayError;
+  getTrayBounds(trayId: number): TrayBounds | TrayError;
 }
 
 // FFI symbols for TrayAPI
@@ -23,6 +24,7 @@ const SYMBOLS = {
   electrobun_tray_api_show_tray: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_tray_api_hide_tray: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
   electrobun_tray_api_set_tray_menu: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
+  electrobun_tray_api_get_tray_bounds: { args: [FFIType.ptr, FFIType.ptr], returns: FFIType.ptr },
 } as const;
 
 export class TrayClient {
@@ -78,6 +80,10 @@ export class TrayClient {
 
   setTrayMenu(trayId: number, menuJson: string): void | TrayError {
     return this.call<void>("electrobun_tray_api_set_tray_menu", { trayId, menuJson });
+  }
+
+  getTrayBounds(trayId: number): TrayBounds | TrayError {
+    return this.call<TrayBounds>("electrobun_tray_api_get_tray_bounds", { trayId });
   }
 
 }

@@ -9,4 +9,5 @@ export interface TrayAPI {
   showTray(trayId: number): void | TrayError;
   hideTray(trayId: number): void | TrayError;
   setTrayMenu(trayId: number, menuJson: string): void | TrayError;
+  getTrayBounds(trayId: number): TrayBounds | TrayError;
 }
