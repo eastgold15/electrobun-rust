@@ -51,11 +51,11 @@ export class ShortcutsClient {
   }
 
   register(accelerator: string): boolean {
-    return this.call<boolean>("electrobun_shortcuts_api_register", { accelerator });
+    return this.call<boolean>("electrobun_shortcuts_api_register", accelerator);
   }
 
   unregister(accelerator: string): boolean {
-    return this.call<boolean>("electrobun_shortcuts_api_unregister", { accelerator });
+    return this.call<boolean>("electrobun_shortcuts_api_unregister", accelerator);
   }
 
   unregisterAll(): boolean {
@@ -63,7 +63,7 @@ export class ShortcutsClient {
   }
 
   isRegistered(accelerator: string): boolean {
-    return this.call<boolean>("electrobun_shortcuts_api_is_registered", { accelerator });
+    return this.call<boolean>("electrobun_shortcuts_api_is_registered", accelerator);
   }
 
 }

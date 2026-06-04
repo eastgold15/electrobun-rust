@@ -53,7 +53,7 @@ export class ClipboardClient {
   }
 
   writeText(text: string): void | ClipboardError {
-    return this.call<void>("electrobun_clipboard_api_write_text", { text });
+    return this.call<void>("electrobun_clipboard_api_write_text", text);
   }
 
   clear(): void | ClipboardError {

@@ -61,11 +61,11 @@ export class CoreClient {
   }
 
   forceExit(code: number): void {
-    return this.call<void>("electrobun_core_api_force_exit", { code });
+    return this.call<void>("electrobun_core_api_force_exit", code);
   }
 
   setExitOnLastWindowClosed(value: boolean): void {
-    return this.call<void>("electrobun_core_api_set_exit_on_last_window_closed", { value });
+    return this.call<void>("electrobun_core_api_set_exit_on_last_window_closed", value);
   }
 
   getPlatform(): string {

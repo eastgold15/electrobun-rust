@@ -5,7 +5,7 @@
     "scripts": {
         "dev": "electrobun-rust dev",
         "build": "electrobun-rust build",
-        "build:stable": "electrobun-rust build --env=stable --no-compress",
+        "build:stable": "electrobun-rust build --env=stable --verbose",
         "typecheck": "bunx tsc --noEmit"
     },
     "dependencies": {

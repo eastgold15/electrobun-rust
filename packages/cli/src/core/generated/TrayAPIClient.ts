@@ -59,11 +59,11 @@ export class TrayClient {
   }
 
   createTray(options: TrayOptions): number | TrayError {
-    return this.call<number>("electrobun_tray_api_create_tray", { options });
+    return this.call<number>("electrobun_tray_api_create_tray", options);
   }
 
   destroyTray(trayId: number): void | TrayError {
-    return this.call<void>("electrobun_tray_api_destroy_tray", { trayId });
+    return this.call<void>("electrobun_tray_api_destroy_tray", trayId);
   }
 
   setTrayImage(trayId: number, image: string): void | TrayError {
@@ -75,11 +75,11 @@ export class TrayClient {
   }
 
   showTray(trayId: number): void | TrayError {
-    return this.call<void>("electrobun_tray_api_show_tray", { trayId });
+    return this.call<void>("electrobun_tray_api_show_tray", trayId);
   }
 
   hideTray(trayId: number): void | TrayError {
-    return this.call<void>("electrobun_tray_api_hide_tray", { trayId });
+    return this.call<void>("electrobun_tray_api_hide_tray", trayId);
   }
 
   setTrayMenu(trayId: number, menuJson: string): void | TrayError {
@@ -87,7 +87,7 @@ export class TrayClient {
   }
 
   getTrayBounds(trayId: number): TrayBounds | TrayError {
-    return this.call<TrayBounds>("electrobun_tray_api_get_tray_bounds", { trayId });
+    return this.call<TrayBounds>("electrobun_tray_api_get_tray_bounds", trayId);
   }
 
 }

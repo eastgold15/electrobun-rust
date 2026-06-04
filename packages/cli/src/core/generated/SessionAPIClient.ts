@@ -53,7 +53,7 @@ export class SessionClient {
   }
 
   getCookies(url: string): string | SessionError {
-    return this.call<string>("electrobun_session_api_get_cookies", { url });
+    return this.call<string>("electrobun_session_api_get_cookies", url);
   }
 
   setCookie(url: string, name: string, value: string, domain: string | null, path: string | null, secure: boolean, httpOnly: boolean, maxAge: number | null): void | SessionError {

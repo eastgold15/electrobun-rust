@@ -83,35 +83,35 @@ export class WindowClient {
   }
 
   createWindow(params: WindowParams): Window | WindowError {
-    return this.call<Window>("electrobun_window_api_create_window", { params });
+    return this.call<Window>("electrobun_window_api_create_window", params);
   }
 
   closeWindow(windowId: number): void | WindowError {
-    return this.call<void>("electrobun_window_api_close_window", { windowId });
+    return this.call<void>("electrobun_window_api_close_window", windowId);
   }
 
   showWindow(windowId: number): void | WindowError {
-    return this.call<void>("electrobun_window_api_show_window", { windowId });
+    return this.call<void>("electrobun_window_api_show_window", windowId);
   }
 
   hideWindow(windowId: number): void | WindowError {
-    return this.call<void>("electrobun_window_api_hide_window", { windowId });
+    return this.call<void>("electrobun_window_api_hide_window", windowId);
   }
 
   minimizeWindow(windowId: number): void | WindowError {
-    return this.call<void>("electrobun_window_api_minimize_window", { windowId });
+    return this.call<void>("electrobun_window_api_minimize_window", windowId);
   }
 
   maximizeWindow(windowId: number): void | WindowError {
-    return this.call<void>("electrobun_window_api_maximize_window", { windowId });
+    return this.call<void>("electrobun_window_api_maximize_window", windowId);
   }
 
   restoreWindow(windowId: number): void | WindowError {
-    return this.call<void>("electrobun_window_api_restore_window", { windowId });
+    return this.call<void>("electrobun_window_api_restore_window", windowId);
   }
 
   focusWindow(windowId: number): void | WindowError {
-    return this.call<void>("electrobun_window_api_focus_window", { windowId });
+    return this.call<void>("electrobun_window_api_focus_window", windowId);
   }
 
   setWindowTitle(windowId: number, title: string): void | WindowError {
@@ -139,27 +139,27 @@ export class WindowClient {
   }
 
   getWindowBounds(windowId: number): WindowBounds | WindowError {
-    return this.call<WindowBounds>("electrobun_window_api_get_window_bounds", { windowId });
+    return this.call<WindowBounds>("electrobun_window_api_get_window_bounds", windowId);
   }
 
   isMinimized(windowId: number): boolean | WindowError {
-    return this.call<boolean>("electrobun_window_api_is_minimized", { windowId });
+    return this.call<boolean>("electrobun_window_api_is_minimized", windowId);
   }
 
   isMaximized(windowId: number): boolean | WindowError {
-    return this.call<boolean>("electrobun_window_api_is_maximized", { windowId });
+    return this.call<boolean>("electrobun_window_api_is_maximized", windowId);
   }
 
   isFullscreen(windowId: number): boolean | WindowError {
-    return this.call<boolean>("electrobun_window_api_is_fullscreen", { windowId });
+    return this.call<boolean>("electrobun_window_api_is_fullscreen", windowId);
   }
 
   isAlwaysOnTop(windowId: number): boolean | WindowError {
-    return this.call<boolean>("electrobun_window_api_is_always_on_top", { windowId });
+    return this.call<boolean>("electrobun_window_api_is_always_on_top", windowId);
   }
 
   unmaximize(windowId: number): void | WindowError {
-    return this.call<void>("electrobun_window_api_unmaximize", { windowId });
+    return this.call<void>("electrobun_window_api_unmaximize", windowId);
   }
 
 }

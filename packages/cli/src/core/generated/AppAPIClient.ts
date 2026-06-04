@@ -71,11 +71,11 @@ export class AppClient {
   }
 
   openExternal(url: string): void | AppError {
-    return this.call<void>("electrobun_app_api_open_external", { url });
+    return this.call<void>("electrobun_app_api_open_external", url);
   }
 
   showItemInFolder(path: string): void | AppError {
-    return this.call<void>("electrobun_app_api_show_item_in_folder", { path });
+    return this.call<void>("electrobun_app_api_show_item_in_folder", path);
   }
 
 }

@@ -216,7 +216,8 @@ pub fn generate_ts_client(
         let param_obj = if param_names.is_empty() {
             "{}".to_string()
         } else if param_names.len() == 1 {
-            format!("{{ {} }}", param_names[0])
+            // 单参数直接传值（Rust 侧从 JSON 直接解析为该类型）
+            param_names[0].clone()
         } else {
             format!("{{ {} }}", param_names.join(", "))
         };

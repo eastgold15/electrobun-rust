@@ -95,11 +95,11 @@ export class WebViewClient {
   }
 
   createWebview(options: WebViewOptions): number | WebViewError {
-    return this.call<number>("electrobun_web_view_api_create_webview", { options });
+    return this.call<number>("electrobun_web_view_api_create_webview", options);
   }
 
   closeWebview(webviewId: number): void | WebViewError {
-    return this.call<void>("electrobun_web_view_api_close_webview", { webviewId });
+    return this.call<void>("electrobun_web_view_api_close_webview", webviewId);
   }
 
   navigate(webviewId: number, url: string): void | WebViewError {
@@ -107,23 +107,23 @@ export class WebViewClient {
   }
 
   navigateBack(webviewId: number): void | WebViewError {
-    return this.call<void>("electrobun_web_view_api_navigate_back", { webviewId });
+    return this.call<void>("electrobun_web_view_api_navigate_back", webviewId);
   }
 
   navigateForward(webviewId: number): void | WebViewError {
-    return this.call<void>("electrobun_web_view_api_navigate_forward", { webviewId });
+    return this.call<void>("electrobun_web_view_api_navigate_forward", webviewId);
   }
 
   canGoBack(webviewId: number): boolean | WebViewError {
-    return this.call<boolean>("electrobun_web_view_api_can_go_back", { webviewId });
+    return this.call<boolean>("electrobun_web_view_api_can_go_back", webviewId);
   }
 
   canGoForward(webviewId: number): boolean | WebViewError {
-    return this.call<boolean>("electrobun_web_view_api_can_go_forward", { webviewId });
+    return this.call<boolean>("electrobun_web_view_api_can_go_forward", webviewId);
   }
 
   reload(webviewId: number): void | WebViewError {
-    return this.call<void>("electrobun_web_view_api_reload", { webviewId });
+    return this.call<void>("electrobun_web_view_api_reload", webviewId);
   }
 
   loadHtml(webviewId: number, html: string): void | WebViewError {
@@ -171,11 +171,11 @@ export class WebViewClient {
   }
 
   openDevtools(webviewId: number): void | WebViewError {
-    return this.call<void>("electrobun_web_view_api_open_devtools", { webviewId });
+    return this.call<void>("electrobun_web_view_api_open_devtools", webviewId);
   }
 
   closeDevtools(webviewId: number): void | WebViewError {
-    return this.call<void>("electrobun_web_view_api_close_devtools", { webviewId });
+    return this.call<void>("electrobun_web_view_api_close_devtools", webviewId);
   }
 
   setPageZoom(webviewId: number, zoomLevel: number): void | WebViewError {
@@ -183,7 +183,7 @@ export class WebViewClient {
   }
 
   getPageZoom(webviewId: number): number | WebViewError {
-    return this.call<number>("electrobun_web_view_api_get_page_zoom", { webviewId });
+    return this.call<number>("electrobun_web_view_api_get_page_zoom", webviewId);
   }
 
   loadHtmlContent(webviewId: number, html: string): void | WebViewError {
@@ -195,7 +195,7 @@ export class WebViewClient {
   }
 
   clearTransport(webviewId: number): void | WebViewError {
-    return this.call<void>("electrobun_web_view_api_clear_transport", { webviewId });
+    return this.call<void>("electrobun_web_view_api_clear_transport", webviewId);
   }
 
 }

@@ -49,7 +49,7 @@ export class DialogClient {
   }
 
   openFileDialog(options: FileDialogOptions): FileDialogResult | DialogError {
-    return this.call<FileDialogResult>("electrobun_dialog_api_open_file_dialog", { options });
+    return this.call<FileDialogResult>("electrobun_dialog_api_open_file_dialog", options);
   }
 
   showMessageBox(title: string, message: string, kind: string): MessageBoxResult | DialogError {
@@ -57,7 +57,7 @@ export class DialogClient {
   }
 
   moveToTrash(path: string): void | DialogError {
-    return this.call<void>("electrobun_dialog_api_move_to_trash", { path });
+    return this.call<void>("electrobun_dialog_api_move_to_trash", path);
   }
 
 }

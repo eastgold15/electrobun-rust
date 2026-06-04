@@ -53,7 +53,7 @@ export class WgpuClient {
   }
 
   requestAdapter(opts: WgpuAdapterOpts): number | WgpuError {
-    return this.call<number>("electrobun_wgpu_api_request_adapter", { opts });
+    return this.call<number>("electrobun_wgpu_api_request_adapter", opts);
   }
 
   requestDevice(adapterId: number, opts: WgpuDeviceOpts): number | WgpuError {
@@ -65,11 +65,11 @@ export class WgpuClient {
   }
 
   present(surfaceId: number): void | WgpuError {
-    return this.call<void>("electrobun_wgpu_api_present", { surfaceId });
+    return this.call<void>("electrobun_wgpu_api_present", surfaceId);
   }
 
   destroy(handle: number): void | WgpuError {
-    return this.call<void>("electrobun_wgpu_api_destroy", { handle });
+    return this.call<void>("electrobun_wgpu_api_destroy", handle);
   }
 
 }
